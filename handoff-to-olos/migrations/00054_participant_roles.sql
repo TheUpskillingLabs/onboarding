@@ -1,4 +1,4 @@
--- 00033_participant_roles.sql — onboarding redesign (generated from docs/DB_CHANGES_ONBOARDING.md rev 2)
+-- 00054_participant_roles.sql — onboarding redesign (generated from docs/DB_CHANGES_ONBOARDING.md rev 2)
 -- Copy into OLOS's supabase/migrations/ — see handoff-to-olos/README.md
 
 -- Unified temporal roles: replaces role_intents-as-truth (no history),
@@ -42,7 +42,7 @@ SELECT participant_id, 'poderator', cycle_id, pod_id, assigned_at, removed_at
 FROM moderator_assignments
 ON CONFLICT DO NOTHING;
 
--- RLS: members read their own roles; admins read/write all (see 00037 for the
--- is_admin()/is_owner() helpers this depends on — apply 00037's helpers first
+-- RLS: members read their own roles; admins read/write all (see 00058 for the
+-- is_admin()/is_owner() helpers this depends on — apply 00058's helpers first
 -- if enabling RLS in the same deploy).
 ALTER TABLE participant_roles ENABLE ROW LEVEL SECURITY;

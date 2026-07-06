@@ -1,4 +1,4 @@
--- 00036_email_log_and_consent.sql — onboarding redesign (generated from docs/DB_CHANGES_ONBOARDING.md rev 2)
+-- 00057_email_log_and_consent.sql — onboarding redesign (generated from docs/DB_CHANGES_ONBOARDING.md rev 2)
 -- Copy into OLOS's supabase/migrations/ — see handoff-to-olos/README.md
 
 -- The welcome-summary email's audit trail (every path ends on the thank-you,

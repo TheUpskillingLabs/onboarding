@@ -1,4 +1,4 @@
--- 00037_admin_roles_and_erasure.sql — onboarding redesign (generated from docs/DB_CHANGES_ONBOARDING.md rev 2)
+-- 00058_admin_roles_and_erasure.sql — onboarding redesign (generated from docs/DB_CHANGES_ONBOARDING.md rev 2)
 -- Copy into OLOS's supabase/migrations/ — see handoff-to-olos/README.md
 
 -- Admin capabilities: role helpers for RLS, complete-profile read for admins,
@@ -88,6 +88,16 @@ BEGIN
   IF NOT is_owner() THEN RAISE EXCEPTION 'delete_participant: owner (super admin) only'; END IF;
   SELECT auth_user_id INTO target_auth FROM participants WHERE id = target_id;
 
+  -- Tables added by dev migrations 00033–00053 (audited 2026-07-06):
+  DELETE FROM learning_logs           WHERE participant_id = target_id;
+  DELETE FROM profile_updates         WHERE participant_id = target_id;
+  DELETE FROM event_rsvps             WHERE participant_id = target_id;  -- rows hold contact PII → delete
+  UPDATE survey_responses SET participant_id = NULL, submitter_name = NULL,
+    submitter_email = NULL, submitter_phone = NULL, contactable = false
+    WHERE participant_id = target_id;  -- observations are commons data → detach + strip ALL contact PII (same policy as problem_statements)
+  DELETE FROM testers WHERE email = (SELECT email FROM participants WHERE id = target_id);
+  UPDATE testers SET granted_by = NULL WHERE granted_by = target_id;
+  -- saved_items cascades via its FK. The pre-existing tables:
   DELETE FROM nudge_dismissals        WHERE moderator_participant_id = target_id;
   DELETE FROM moderator_ui_state      WHERE participant_id = target_id;
   DELETE FROM feedback_attachments    WHERE feedback_id IN (SELECT id FROM feedback WHERE participant_id = target_id);

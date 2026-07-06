@@ -1,4 +1,4 @@
--- 00034_agreement_acceptances.sql — onboarding redesign (generated from docs/DB_CHANGES_ONBOARDING.md rev 2)
+-- 00055_agreement_acceptances.sql — onboarding redesign (generated from docs/DB_CHANGES_ONBOARDING.md rev 2)
 -- Copy into OLOS's supabase/migrations/ — see handoff-to-olos/README.md
 
 -- Three versioned documents, separately accepted (Guidelines → Participation

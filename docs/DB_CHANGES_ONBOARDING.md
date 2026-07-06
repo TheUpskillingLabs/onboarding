@@ -3,7 +3,7 @@
 **Status: DRAFT — for review. Nothing here has been run.**
 
 Target: the shared Supabase DB (schema snapshot 2026-07-06 = OLOS migrations through
-00032). Written as five forward-only migration files in OLOS's numbering, 00033–00037.
+00032). Written as five forward-only migration files in OLOS's numbering, **00054–00058** (renumbered 2026-07-06: OLOS's dev branch was already at 00053 — the public main branch, audited earlier, stops at 00032).
 Supersedes revision 1 of this document.
 
 What this revision folds in (the full set of owner decisions from the build):
@@ -25,7 +25,7 @@ What this revision folds in (the full set of owner decisions from the build):
 
 ---
 
-## 00033_participant_roles.sql
+## 00054_participant_roles.sql
 
 ```sql
 -- Unified temporal roles: replaces role_intents-as-truth (no history),
@@ -69,8 +69,8 @@ SELECT participant_id, 'poderator', cycle_id, pod_id, assigned_at, removed_at
 FROM moderator_assignments
 ON CONFLICT DO NOTHING;
 
--- RLS: members read their own roles; admins read/write all (see 00037 for the
--- is_admin()/is_owner() helpers this depends on — apply 00037's helpers first
+-- RLS: members read their own roles; admins read/write all (see 00058 for the
+-- is_admin()/is_owner() helpers this depends on — apply 00058's helpers first
 -- if enabling RLS in the same deploy).
 ALTER TABLE participant_roles ENABLE ROW LEVEL SECURITY;
 ```
@@ -81,7 +81,7 @@ a later cleanup migration. `role_intents` stays as the immutable signup-time ans
 "Active upskiller" for gating should derive from `cycle_enrollments.status`; the role
 row records identity/intent.
 
-## 00034_agreement_acceptances.sql
+## 00055_agreement_acceptances.sql
 
 ```sql
 -- Three versioned documents, separately accepted (Guidelines → Participation
@@ -117,7 +117,7 @@ ALTER TABLE agreement_acceptances ENABLE ROW LEVEL SECURITY;
 `cycle_agreements` is untouched — it stays the home of the Open Cycle Agreement
 signature, which now happens at a later ceremony, not during onboarding.
 
-## 00035_intake_and_interest.sql
+## 00056_intake_and_interest.sql
 
 ```sql
 -- New intake columns (all nullable — events-only signups skip every one of them)
@@ -138,13 +138,15 @@ UPDATE participants SET created_via = 'import' WHERE created_via = 'unknown';
 
 -- Registration stops at the commitment screen (owner decision): Begin
 -- registration records INTEREST. Formalize the status vocabulary on
--- cycle_enrollments (it's an unconstrained varchar today):
+-- cycle_enrollments (constrained by 00037_schema_hardening on dev):
+-- 00037_schema_hardening already constrains status to ('inactive','active',
+-- 'revoked','stepped_back'); this EXTENDS it — the union, never dropping
+-- 'revoked' (the revocation flow writes it):
 ALTER TABLE cycle_enrollments DROP CONSTRAINT IF EXISTS cycle_enrollments_status_check;
 ALTER TABLE cycle_enrollments ADD CONSTRAINT cycle_enrollments_status_check
-  CHECK (status IN ('interested','active','inactive','stepped_back','completed'));
--- ⚠ Verify existing status values first:
+  CHECK (status IN ('interested','active','inactive','revoked','stepped_back','completed')) NOT VALID;
+-- ⚠ Verify no other status values exist before promoting to prod:
 --   SELECT DISTINCT status FROM cycle_enrollments;
--- and extend the list above to cover them before applying.
 
 -- The flow's write: Begin registration →
 --   INSERT INTO cycle_enrollments (participant_id, cycle_id, status) VALUES (:p, :c, 'interested')
@@ -155,7 +157,7 @@ ALTER TABLE cycle_enrollments ADD CONSTRAINT cycle_enrollments_status_check
 Already present and reused as-is: `sector`, `linkedin`, `work_situation`, `zip`,
 `metro_slug`, `source` (hearAbout), `referred_by`.
 
-## 00036_email_log_and_consent.sql
+## 00057_email_log_and_consent.sql
 
 ```sql
 -- The welcome-summary email's audit trail (every path ends on the thank-you,
@@ -188,7 +190,7 @@ COMMENT ON COLUMN participants.participation_commitment IS 'LEGACY intake (pre-2
 COMMENT ON COLUMN participants.main_focus IS 'LEGACY intake (pre-2026-07 flow)';
 ```
 
-## 00037_admin_roles_and_erasure.sql
+## 00058_admin_roles_and_erasure.sql
 
 ```sql
 -- Admin capabilities: role helpers for RLS, complete-profile read for admins,
@@ -278,6 +280,16 @@ BEGIN
   IF NOT is_owner() THEN RAISE EXCEPTION 'delete_participant: owner (super admin) only'; END IF;
   SELECT auth_user_id INTO target_auth FROM participants WHERE id = target_id;
 
+  -- Tables added by dev migrations 00033–00053 (audited 2026-07-06):
+  DELETE FROM learning_logs           WHERE participant_id = target_id;
+  DELETE FROM profile_updates         WHERE participant_id = target_id;
+  DELETE FROM event_rsvps             WHERE participant_id = target_id;  -- rows hold contact PII → delete
+  UPDATE survey_responses SET participant_id = NULL, submitter_name = NULL,
+    submitter_email = NULL, submitter_phone = NULL, contactable = false
+    WHERE participant_id = target_id;  -- observations are commons data → detach + strip ALL contact PII
+  DELETE FROM testers WHERE email = (SELECT email FROM participants WHERE id = target_id);
+  UPDATE testers SET granted_by = NULL WHERE granted_by = target_id;
+  -- saved_items cascades via its FK. The pre-existing tables:
   DELETE FROM nudge_dismissals        WHERE moderator_participant_id = target_id;
   DELETE FROM moderator_ui_state      WHERE participant_id = target_id;
   DELETE FROM feedback_attachments    WHERE feedback_id IN (SELECT id FROM feedback WHERE participant_id = target_id);
@@ -312,7 +324,7 @@ REVOKE ALL ON FUNCTION delete_participant(integer, varchar) FROM anon, authentic
 GRANT EXECUTE ON FUNCTION delete_participant(integer, varchar) TO authenticated; -- gated inside by is_owner()
 ```
 
-⚠ Two policy decisions inside 00037 need sign-off before it runs:
+⚠ Two policy decisions inside 00058 need sign-off before it runs:
 1. **Authored commons content** (problem statements, proposals) is detached
    (author set NULL) rather than deleted — matches "contributions returned to the
    commons stay in the commons." If legal wants full deletion, change the two
@@ -362,7 +374,7 @@ OLOS (checked at main, 2026-07-06) has none of these objects; its readers:
 - The eventual drops (`user_roles`, `moderator_assignments`, old agreement columns,
   legacy intake/consent columns) are a separate migration, run only after OLOS's
   reads migrate and both codebases grep clean.
-- The `cycle_enrollments` status CHECK in 00035 is the one 00033–00036 change that
+- The `cycle_enrollments` status CHECK in 00056 is the one 00033–00036 change that
   can bite OLOS — if OLOS writes a status outside the list, extend the list.
   Verify with the DISTINCT query before applying.
 
@@ -384,10 +396,10 @@ throughout, cutover is a routing change, not a data migration.
 
 ## Run order
 
-1. 00033 (roles + backfill) — additive
-2. 00034 (agreements + backfill) — additive
-3. 00035 (intake, created_via, interest status) — additive; verify the DISTINCT statuses first
-4. 00036 (email_log, consent comments) — additive
-5. 00037 (helpers, RLS policies, erasure) — after legal signs off on the two ⚠ decisions
+1. 00054 (roles + backfill) — additive
+2. 00055 (agreements + backfill) — additive
+3. 00056 (intake, created_via, interest status) — additive; verify the DISTINCT statuses first
+4. 00057 (email_log, consent comments) — additive
+5. 00058 (helpers, RLS policies, erasure) — after legal signs off on the two ⚠ decisions
 6. Point the onboarding app's writes at the new tables (dual-writing roles)
 7. Migrate OLOS's reads → cleanup migration with the drops (last, together)

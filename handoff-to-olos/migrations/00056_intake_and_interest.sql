@@ -1,4 +1,4 @@
--- 00035_intake_and_interest.sql — onboarding redesign (generated from docs/DB_CHANGES_ONBOARDING.md rev 2)
+-- 00056_intake_and_interest.sql — onboarding redesign (generated from docs/DB_CHANGES_ONBOARDING.md rev 2)
 -- Copy into OLOS's supabase/migrations/ — see handoff-to-olos/README.md
 
 -- New intake columns (all nullable — events-only signups skip every one of them)
@@ -18,14 +18,15 @@ ALTER TABLE participants
 UPDATE participants SET created_via = 'import' WHERE created_via = 'unknown';
 
 -- Registration stops at the commitment screen (owner decision): Begin
--- registration records INTEREST. Formalize the status vocabulary on
--- cycle_enrollments (it's an unconstrained varchar today):
+-- registration records INTEREST. 00037_schema_hardening already constrains
+-- cycle_enrollments.status to ('inactive','active','revoked','stepped_back');
+-- this EXTENDS that vocabulary — the union of both, never dropping 'revoked'
+-- (the revocation flow writes it) — adding 'interested' + 'completed'.
 ALTER TABLE cycle_enrollments DROP CONSTRAINT IF EXISTS cycle_enrollments_status_check;
 ALTER TABLE cycle_enrollments ADD CONSTRAINT cycle_enrollments_status_check
-  CHECK (status IN ('interested','active','inactive','stepped_back','completed'));
--- ⚠ Verify existing status values first:
+  CHECK (status IN ('interested','active','inactive','revoked','stepped_back','completed')) NOT VALID;
+-- ⚠ Verify no other status values exist before promoting to prod:
 --   SELECT DISTINCT status FROM cycle_enrollments;
--- and extend the list above to cover them before applying.
 
 -- The flow's write: Begin registration →
 --   INSERT INTO cycle_enrollments (participant_id, cycle_id, status) VALUES (:p, :c, 'interested')
