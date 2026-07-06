@@ -946,9 +946,10 @@ function beginCycleRegistration(){
   // (concierge/email follow-up in production). FLOWS('cycle') is retained but
   // unreferenced from registration.
   userState.cycleStatus='interested'; saveUserState(); renderTodos();
+  if(nextRoleInQueue()) return; // more added roles waiting — their flows first, thank-you last
   showThankYou('interested');
 }
-function declineCycleThreshold(){ pendingPod=null; renderTodos(); if(thresholdFromSignup){ showThankYou(false); } else { goApp('dashboard'); } } // an honest exit — the cycle todo stays, nothing nags; from signup it still closes with the thank-you
+function declineCycleThreshold(){ pendingPod=null; renderTodos(); if(nextRoleInQueue()) return; /* declining the cycle still asks the other added roles' details */ if(thresholdFromSignup){ showThankYou(false); } else { goApp('dashboard'); } } // an honest exit — the cycle todo stays, nothing nags; from signup it still closes with the thank-you
 /* Signing lands here: the confirmation carries the kickoff date, a calendar
    file of the anchor events, and the pod chooser if no pod was picked. */
 function cycleICS(){
@@ -998,7 +999,7 @@ function signupSummaryRows(registered){
     ['Your account', (userState.fullName||'')+' · alex.rivera@gmail.com · '+((userState.lab&&userState.lab.name)||'The Labs')],
     ['How you want to take part', (userState.roles&&userState.roles.length?userState.roles.map(r=>({cycle:'Build Cycle',events:'Events & workshops',volunteer:'Volunteer',mentor:'Mentor'}[r]||r)).join(' · '):'Exploring for now')],
     ['What you signed', userState.agreements.map(g=>((A[g.doc]&&A[g.doc].title)||g.doc)+' ('+new Date(g.at).toLocaleDateString('en-US',{month:'short',day:'numeric'})+')').join(' · ')||'—'],
-    ['Build Cycle', registered==='interested'?'You’re in — we’ll email you the next step to complete registration':registered?'Registered — Civics & Elections · Kickoff July 14':'Not this season — the door stays open'],
+    ['Build Cycle', registered==='interested'?'You’re in — we’ll email you the next step to complete registration':registered?'Registered — Civics & Elections · Kickoff July 14':'Not this cycle — the door stays open'],
     ['Hearing from us', userState.contactOptIn?'Updates, newsletters, and invites — you said yes':'Account-critical messages only']
   ];
   return rows;
@@ -1016,8 +1017,9 @@ function showThankYou(registered){
   renderTodos(); showView('thankyou');
 }
 /* Onboarding never exits into the member portal (owner decision) — the thank-you
-   is the terminus; Done returns to the public landing. */
-function closeOnboarding(){ if(document.getElementById('view-landing')) showView('landing'); else location.href='../index.html'; }
+   is the terminus. Done returns to: the marketing site (standalone join/ page,
+   via window.JOIN_RETURN from its ?return= param) or the public landing. */
+function closeOnboarding(){ if(window.JOIN_RETURN){ location.href=window.JOIN_RETURN; return; } if(document.getElementById('view-landing')) showView('landing'); else location.href='../index.html'; }
 /* ── Leaving well (UX_FINDINGS F4) — the agreement promises it, so it has a
    path: step back from the cycle with a note to your Poderator. No guilt UI,
    the door stays open, commons contributions stay credited. Production:
@@ -1051,13 +1053,21 @@ function updateRoleBtn(){ const c=document.querySelectorAll('#role-options input
 function submitRoleIntent(){
   const picked=[...document.querySelectorAll('#role-options input:checked')].map(c=>c.value);
   if(roleUpdateMode){
-    // A member updating how they take part — never re-run signup. Newly added
-    // roles with a setup flow enter through their own seam; the rest are todos.
+    // A member updating how they take part — never re-run signup. EVERY newly
+    // added role with a setup flow asks its details, one flow after another
+    // (cycle → mentor → volunteer), each through its own seam; the queue ends
+    // on the thank-you.
     roleUpdateMode=false;
     const prev=userState.roles||[];
-    const added=picked.filter(r=>!prev.includes(r)&&FLOW_ROLES.includes(r)&&!userState.completed[r]);
+    const added=['cycle','mentor','volunteer'].filter(r=>picked.includes(r)&&!prev.includes(r)&&!userState.completed[r]);
     userState.roles=picked; userState.isMentor=picked.includes('mentor'); saveUserState(); renderTodos();
-    if(added.length){ startRoleFlow(added[0], ()=>showWelcomeBack()); } else { showWelcomeBack(); }
+    roleQueue=added;
+    // Upgrading into a real role requires the documents (owner decision): anyone
+    // missing the Guidelines or Participation Agreement at their CURRENT versions
+    // signs them FIRST — this catches events-only members leveling up, and
+    // version bumps force a re-sign the same way.
+    if(added.length&&(!hasAgreed('guidelines')||!hasAgreed('participation'))){ startFlow('agreements', ()=>showWelcomeBack()); return; }
+    if(!nextRoleInQueue()) showWelcomeBack();
     return;
   }
   userState.roles=picked; userState.isMentor=picked.includes('mentor'); saveUserState(); startFlow('signup', ()=>showView('role-intent'));
@@ -1070,6 +1080,8 @@ function continueWithGoogle(){
 }
 /* ── The returning-member branch: review what's on file, then update ── */
 let roleUpdateMode=false;
+let roleQueue=[]; // newly added roles awaiting their setup flows (update path)
+function nextRoleInQueue(){ const next=roleQueue.shift(); if(next){ startRoleFlow(next, ()=>showWelcomeBack(), true); return true; } return false; }
 function showRoleUpdate(){ roleUpdateMode=true; document.querySelectorAll('#role-options input').forEach(i=>{ i.checked=(userState.roles||[]).includes(i.value); }); updateRoleBtn(); showView('role-intent'); }
 function editSignupDetails(){
   const parts=(userState.fullName||'').split(' '); const a=userState.answers||{};
@@ -1138,6 +1150,14 @@ function FLOWS(name){
       {id:'agreeGuidelines',type:'consent',section:'The paperwork · 1 of 2',q:'The Volunteer Guidelines',help:'How we work together — read it to the end.',agreementTitle:'The Volunteer Guidelines',agreementHTML:(window.AGREEMENTS&&window.AGREEMENTS.guidelines.html)||'',text:'I have read and agree to the Volunteer Guidelines.',when:()=>!eventsOnly()&&!hasAgreed('guidelines')},
       {id:'agreeParticipation',type:'consent',section:'The paperwork · 2 of 2',q:'The Participation Agreement',help:'This is the deal between you and The Labs — read it to the end.',agreementTitle:'The Volunteer Participation Agreement',agreementHTML:(window.AGREEMENTS&&window.AGREEMENTS.participation.html)||'',text:'I have read and agree to the Volunteer Participation Agreement.',when:()=>!eventsOnly()&&!hasAgreed('participation')},
       {id:'keepPosted',type:'consent',optional:true,section:'Last thing',q:'Can we contact you?',help:'Entirely up to you — account-critical messages arrive either way.',text:'Yes, I’d like to receive updates, newsletters, and invites from The Upskilling Labs.'} ]};
+  if(name==='agreements') return { eyebrow:'Your agreements', finalLabel:'I agree', finalClass:'btn-red',
+    // The catch-up flow: presented when a member upgrades into a role that
+    // requires documents they haven't accepted at the current versions
+    // (events-only members leveling up; anyone after a version bump).
+    onComplete:()=>{ recordAgreement('guidelines'); recordAgreement('participation'); saveUserState();
+      if(!nextRoleInQueue()) showThankYou(userState.cycleStatus==='interested'?'interested':!!userState.completed.cycle); },
+    steps:[ {id:'agreeGuidelines',type:'consent',section:'1 of 2',q:'The Volunteer Guidelines',help:'Taking on a role at The Labs starts with the documents — read it to the end.',agreementTitle:'The Volunteer Guidelines',agreementHTML:(window.AGREEMENTS&&window.AGREEMENTS.guidelines.html)||'',text:'I have read and agree to the Volunteer Guidelines.',when:()=>!hasAgreed('guidelines')},
+      {id:'agreeParticipation',type:'consent',section:'2 of 2',q:'The Participation Agreement',help:'This is the deal between you and The Labs — read it to the end.',agreementTitle:'The Volunteer Participation Agreement',agreementHTML:(window.AGREEMENTS&&window.AGREEMENTS.participation.html)||'',text:'I have read and agree to the Volunteer Participation Agreement.',when:()=>!hasAgreed('participation')} ]};
   if(name==='survey') return { eyebrow:'Field survey · Civic & Elections', finalLabel:'Submit observation', finalClass:'btn-teal',
     onComplete:()=>{ appendSurveyObservation((fans.obsTitle||'').trim(), (fans.obsSummary||'').trim());
       flow._count=(flow._count||0)+1;
@@ -1197,7 +1217,7 @@ function FLOWS(name){
           {title:'I’ll check in every week.', body:'Five minutes, once a week. If I skip it, the app pauses until I catch up. If life gets in the way, I’ll tell my Poderator instead of going quiet.'},
           {title:'Our project is open source.', body:'What we build is an open-source community project — MIT for code, CC BY 4.0 for everything else, with everyone who worked on it credited. Once the cycle ends, I’m free to do whatever I want with it, and so is anyone else.'}
         ]} ]};
-  if(name==='mentor') return { eyebrow:'Mentor profile', finalLabel:'Publish mentor profile', finalClass:'btn-teal', onComplete:()=>{ recordAgreement('mentor'); finishRoleFlow('mentor'); showThankYou(userState.cycleStatus==='interested'?'interested':!!userState.completed.cycle); /* mentor publish closes on the thank-you (owner decision) */ },
+  if(name==='mentor') return { eyebrow:'Mentor profile', finalLabel:'Publish mentor profile', finalClass:'btn-teal', onComplete:()=>{ recordAgreement('mentor'); finishRoleFlow('mentor'); if(nextRoleInQueue()) return; showThankYou(userState.cycleStatus==='interested'?'interested':!!userState.completed.cycle); /* mentor publish closes on the thank-you (owner decision) */ },
     steps:[ {id:'expertise',type:'tags',q:'What do you bring?',help:'Pick the areas where you can help — everything here shows on your mentor profile — visible to all Labs members — which is how upskillers and project teams find you.',options:EXPERTISE,required:true},
       {id:'engage',type:'checks',q:'How would you like to engage?',help:'Select all that work for you.',options:ENGAGE,required:true},
       {id:'pods',type:'textarea',q:'Who have you mentored, and how?',help:'Tell us where, when, and how you\u2019ve mentored — inside or outside The Labs. No names needed.',ph:'e.g. 3 pods in the Civic AI cycle — weekly office hours on scoping and shipping.',required:true},
@@ -1206,7 +1226,7 @@ function FLOWS(name){
          the seam where it applies — the last step before publishing, never during
          signup. Skips if the current version is already on file. */
       {id:'agreeMentor',type:'consent',q:'The Mentor Agreement',help:'One document — read it to the end, then publish.',agreementTitle:'The Volunteer Mentor Agreement',agreementHTML:(window.AGREEMENTS&&window.AGREEMENTS.mentor.html)||'',text:'I have read and agree to the Volunteer Mentor Agreement.',when:()=>!hasAgreed('mentor')} ]};
-  if(name==='volunteer') return { eyebrow:'Volunteer profile', finalLabel:'Save profile', finalClass:'btn-teal', onComplete:()=>{ finishRoleFlow('volunteer'); showThankYou(userState.cycleStatus==='interested'?'interested':!!userState.completed.cycle); /* volunteer save closes on the thank-you (owner decision) */ },
+  if(name==='volunteer') return { eyebrow:'Volunteer profile', finalLabel:'Save profile', finalClass:'btn-teal', onComplete:()=>{ finishRoleFlow('volunteer'); if(nextRoleInQueue()) return; showThankYou(userState.cycleStatus==='interested'?'interested':!!userState.completed.cycle); /* volunteer save closes on the thank-you (owner decision) */ },
     steps:[ {id:'seam',type:'info',q:'Before you start',help:'Three quick questions so the Labs team can match you to events and needs. Your answers go to the team — nothing publishes without your say-so.',render:'<div class="flow-emaillarge" style="font-size:18px;line-height:1.5;">Your volunteer profile<br>Three questions · about a minute</div>'},
       {id:'areas',type:'tags',q:'Where would you like to help?',help:'Pick the areas that fit. Choose as many as you like.',options:VOL_AREAS,required:true},
       {id:'ways',type:'checks',q:'How would you like to pitch in?',help:'Select all that work for you.',options:VOL_WAYS,required:true},

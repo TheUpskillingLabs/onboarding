@@ -268,6 +268,34 @@ button,input,select,textarea { font-family:inherit; }
   </div>
 </div>
 
+<!-- Change email — super-admin only; identity change, never self-serve -->
+<div class="gate-modal" id="em-modal" onclick="if(event.target===this)closeEmailChange()">
+  <div class="gate-sheet">
+    <button class="gate-close" onclick="closeEmailChange()" aria-label="Close">
+      <svg width="20" height="20" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 5L17 17M17 5L5 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <h3 class="t-h3" style="margin-bottom:4px;padding-right:32px;">Change email for <span id="em-name"></span></h3>
+    <p class="t-small" style="margin-bottom:16px;">This changes how they sign in and where every email goes. Production sends a re-verification to the new address before it takes effect.</p>
+    <div class="field" style="margin-bottom:16px;"><label for="em-input">New email address</label><input type="email" id="em-input" style="width:100%;border:1px solid var(--rule);border-radius:var(--r);padding:12px 14px;font:inherit;font-size:16px;background:var(--white);"></div>
+    <button class="btn btn-teal btn-block" style="margin-bottom:10px;" onclick="confirmEmailChange()">Change email</button>
+    <button class="btn-link" style="color:var(--meta);width:100%;" onclick="closeEmailChange()">Cancel</button>
+  </div>
+</div>
+
+<!-- Delete user — super-admin only; erases everything about them -->
+<div class="gate-modal" id="del-modal" onclick="if(event.target===this)closeDeleteUser()">
+  <div class="gate-sheet">
+    <button class="gate-close" onclick="closeDeleteUser()" aria-label="Close">
+      <svg width="20" height="20" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 5L17 17M17 5L5 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <h3 class="t-h3" style="margin-bottom:8px;padding-right:32px;">Delete <span id="del-name">this user</span>?</h3>
+    <p class="t-small" style="margin-bottom:10px;">This permanently deletes their account and <b>everything attached to it</b> — profile, intake answers, agreement records, roles, enrollments, logs, and emails. There is no undo.</p>
+    <p class="t-small" style="color:var(--meta);margin-bottom:18px;">If they simply stepped away, revoke roles or mark them inactive instead — deletion is for erasure requests and mistakes.</p>
+    <button class="btn btn-block" style="background:var(--red);color:#fff;margin-bottom:10px;" onclick="confirmDeleteUser()">Delete permanently</button>
+    <button class="btn-link" style="color:var(--meta);width:100%;" onclick="closeDeleteUser()">Cancel — keep this user</button>
+  </div>
+</div>
+
 <!-- Permissions editor — stub; Save mutates in-memory only -->
 <div class="gate-modal" id="perm-modal" onclick="if(event.target===this)closePermModal()">
   <div class="gate-sheet">
@@ -304,7 +332,7 @@ const ADMIN_PROPOSALS=[
 ];
 const BALLOTS_IN=5, BALLOTS_TOTAL=7;
 const PEOPLE=[
-  {id:'you', name:'Alex Rivera', initials:'AR', roles:['Admin','Upskiller'], enrollment:'Summer 2026', mod:'—'},
+  {id:'you', name:'Alex Rivera', initials:'AR', roles:['Owner','Admin','Upskiller'], enrollment:'Summer 2026', mod:'—'},
   {id:'m1', name:'Priya Shah', initials:'PS', roles:['Mentor'], enrollment:'Summer 2026', mod:'—'},
   {id:'m2', name:'Marcus Bell', initials:'MB', roles:['Mentor','Upskiller'], enrollment:'Summer 2026', mod:'—'},
   {id:'m3', name:'Jordan Okafor', initials:'JO', roles:['Upskiller'], enrollment:'Summer 2026', mod:'—'},
@@ -480,8 +508,12 @@ function savePerms(btn){
 /* ── Signups — onboarding review (metrics · intake · agreements · admin roles).
    Mock intake for the roster, plus the LIVE signup read from olos.userState.v1 /
    olos.session.v1 (display-only). Production: participants + agreement_acceptances. ── */
+/* Email lives on the identity, not the profile — members can never change it;
+   super admins (Owner) can, via the detail modal. Overrides are in-memory. */
+const EMAIL_OVERRIDES={};
+function emailFor(r){ return EMAIL_OVERRIDES[r.id]||r.email||(r.live?'alex.rivera@gmail.com':r.id+'@example.org'); }
 const INTAKE={
-  m1:{joined:'Jun 12', sector:'Technology', yearsExp:'10–19 years', education:'Graduate degree', referral:'Invited · L. Ortega', optIn:true, docs:['participation','guidelines','mentor'], linkedin:'linkedin.com/in/priyashah'},
+  m1:{joined:'Jun 12', email:'priya.shah@gmail.com', sector:'Technology', yearsExp:'10–19 years', education:'Graduate degree', referral:'Invited · L. Ortega', optIn:true, docs:['participation','guidelines','mentor'], linkedin:'linkedin.com/in/priyashah'},
   m2:{joined:'Jun 14', sector:'Business & finance', yearsExp:'20+ years', education:'Bachelor’s degree', referral:'An event', optIn:true, docs:['participation','guidelines','mentor'], linkedin:''},
   m3:{joined:'Jun 18', sector:'Government & public sector', yearsExp:'5–9 years', education:'Some college', referral:'A friend · T. Nguyen', optIn:false, docs:['participation','guidelines'], linkedin:'linkedin.com/in/jokafor'},
   m4:{joined:'Jun 20', sector:'Nonprofit & community', yearsExp:'10–19 years', education:'Bachelor’s degree', referral:'Somewhere else', optIn:true, docs:['participation','guidelines'], linkedin:''},
@@ -514,33 +546,93 @@ function renderSignups(){
   const topSector=(()=>{ const t={}; rows.forEach(r=>{ if(r.sector&&r.sector!=='—'&&r.sector!=='Prefer not to answer') t[r.sector]=(t[r.sector]||0)+1; }); const e=Object.entries(t).sort((a,b)=>b[1]-a[1])[0]; return e?e[0]:'—'; })();
   const stat=(n,l)=>'<div class="lcard" style="padding:16px 18px;"><div class="t-stat" style="font-size:26px;">'+n+'</div><div class="lbl" style="margin-top:2px;">'+l+'</div></div>';
   m.innerHTML=stat(rows.length,'Signups')+stat(count(r=>(r.roles||[]).some(x=>/mentor/i.test(x))),'Mentors')+stat(count(r=>(r.roles||[]).some(x=>/volunteer/i.test(x))),'Volunteers')+stat(optPct+'%','Contact opt-in')+stat(topSector,'Top sector');
-  document.getElementById('signup-rows').innerHTML=rows.map((r,i)=>{
+  document.getElementById('signup-rows').innerHTML=rows.map(r=>{
     const docs=r.live?(r.agreements||[]).length:(r.docs||[]).length;
-    return '<tr onclick="openSignup('+i+')" style="cursor:pointer;">'
+    return '<tr onclick="openSignup(\''+r.id+'\')" style="cursor:pointer;">'
       +'<td>'+(r.live?'<b>':'')+r.name+(r.live?'</b>':'')+'</td><td>'+(r.joined||'—')+'</td>'
       +'<td>'+(r.roles||[]).join(', ')+'</td><td>'+(r.sector||'—')+'</td><td>'+(r.yearsExp||'—')+'</td>'
       +'<td>'+(r.referral||'—')+'</td><td>'+docs+' ✓</td><td>'+(r.optIn?'Yes':'No')+'</td></tr>';
   }).join('');
   renderAdminUsers();
 }
-function openSignup(i){
-  const r=signupRoster()[i]; if(!r) return;
+/* Super admin = the Owner role. Only owners may delete users; production maps
+   this to an owner-gated endpoint, never a client check. */
+function isSuperAdmin(){ const me=PEOPLE.find(p=>p.id==='you'); return !!(me&&me.roles.includes('Owner')); }
+const ROLE_SET=['Upskiller','Events','Volunteer','Mentor','Poderator','Admin','Owner'];
+const LIVE_ROLE_MAP={Upskiller:'cycle',Events:'events',Volunteer:'volunteer',Mentor:'mentor'}; // the member app's raw role keys
+const LIVE_ROLE_LABELS={cycle:'Upskiller',events:'Events',volunteer:'Volunteer',mentor:'Mentor'};
+let sgSel=null; // the open signup's id
+function rosterById(id){ return signupRoster().find(r=>r.id===id); }
+function openSignup(id){
+  const r=rosterById(id); if(!r) return; sgSel=id;
   const row=(k,v)=>'<div style="display:flex;gap:14px;padding:9px 0;border-bottom:1px solid var(--rule);"><span class="lbl" style="width:120px;flex-shrink:0;padding-top:2px;">'+k+'</span><span class="t-small" style="flex:1;">'+(v||'—')+'</span></div>';
   const docs=r.live
     ? (r.agreements||[]).map(g=>(DOC_LABELS[g.doc]||g.doc)+' · '+(g.version||'')+' · '+new Date(g.at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})).join('<br>')
     : (r.docs||[]).map(d=>DOC_LABELS[d]+' ✓').join('<br>');
   const email=r.live&&r.emails&&r.emails.length?('<b>'+r.emails[0].subject+'</b><br><span style="white-space:pre-line;">'+r.emails[0].body+'</span>'):'';
+  const roleLabels=r.live?(r.roles||[]).map(x=>LIVE_ROLE_LABELS[x]||x):(r.roles||[]);
+  // Role editor — every role a chip; active = held. Live account: member roles
+  // toggle for real (writes olos.userState.v1); operational roles are managed
+  // via View-as in this prototype, so those chips are disabled for the live row.
+  const roleChips=ROLE_SET.map(role=>{
+    const on=roleLabels.includes(role);
+    const disabled=r.live&&!LIVE_ROLE_MAP[role];
+    return '<button class="chip'+(on?' active':'')+'"'+(disabled?' disabled title="Operational roles for the live account are a View-as lens in this prototype"':' onclick="toggleRoleFor(\''+r.id+'\',\''+role+'\')"')+'>'+role+(on?' ✓':'')+'</button>';
+  }).join('');
+  const emailRow='<div style="display:flex;gap:14px;padding:9px 0;border-bottom:1px solid var(--rule);align-items:center;"><span class="lbl" style="width:120px;flex-shrink:0;">Email</span><span class="t-small" style="flex:1;">'+emailFor(r)+'</span>'
+    +(isSuperAdmin()?'<button class="btn btn-ghost-teal btn-sm" onclick="openEmailChange(\''+r.id+'\')">Change…</button>':'<span class="t-small" style="color:var(--meta-soft);">members can’t change this</span>')+'</div>';
   document.getElementById('sg-title').textContent=r.name;
   document.getElementById('sg-body').innerHTML=
-    row('Joined', r.joined)+row('Roles', (r.roles||[]).join(', '))
+    row('Joined', r.joined)+emailRow+row('Roles', roleLabels.join(', '))
     +(r.live?row('Work status', r.work)+row('Zip', r.zip):'')
-    +row('Sector', r.sector+(r.sectorOther?' — '+r.sectorOther:''))+row('Experience', r.yearsExp)+row('Education', r.education)
+    +row('Sector', (r.sector||'—')+(r.sectorOther?' — '+r.sectorOther:''))+row('Experience', r.yearsExp)+row('Education', r.education)
     +row('LinkedIn', r.linkedin)+row('Heard via', r.hearAbout||r.referral)+row('Contact opt-in', r.optIn?'Yes — updates, newsletters, invites':'No — account-critical only')
     +row('Documents', docs||'—')
-    +(email?'<div class="lbl lbl-teal" style="margin:16px 0 8px;">Welcome email (simulated outbox)</div><div class="t-small" style="background:var(--tint);border-radius:var(--r);padding:12px 14px;">'+email+'</div>':'');
+    +(email?'<div class="lbl lbl-teal" style="margin:16px 0 8px;">Welcome email (simulated outbox)</div><div class="t-small" style="background:var(--tint);border-radius:var(--r);padding:12px 14px;">'+email+'</div>':'')
+    +'<div class="lbl lbl-teal" style="margin:16px 0 8px;">Roles</div><div style="display:flex;gap:8px;flex-wrap:wrap;">'+roleChips+'</div>'
+    +(isSuperAdmin()?'<div class="lbl" style="margin:20px 0 8px;color:var(--red);">Danger zone · super admin</div><button class="btn btn-sm" style="background:transparent;border:1px solid var(--red);color:var(--red);" onclick="openDeleteUser(\''+r.id+'\')">Delete this user…</button>':'');
   document.getElementById('sg-modal').classList.add('open');
 }
-function closeSignup(){ document.getElementById('sg-modal').classList.remove('open'); }
+function toggleRoleFor(id, role){
+  const r=rosterById(id); if(!r) return;
+  if(r.live){
+    const raw=LIVE_ROLE_MAP[role]; if(!raw) return;
+    try{ const u=JSON.parse(localStorage.getItem('olos.userState.v1')||'null'); if(!u) return;
+      u.roles=u.roles||[]; const i=u.roles.indexOf(raw); if(i>=0) u.roles.splice(i,1); else u.roles.push(raw);
+      localStorage.setItem('olos.userState.v1', JSON.stringify(u)); /* the member app picks this up via its storage listener */ }catch(e){}
+  } else {
+    const p=PEOPLE.find(x=>x.id===id); if(!p) return;
+    const i=p.roles.indexOf(role); if(i>=0) p.roles.splice(i,1); else p.roles.push(role);
+  }
+  renderSignups(); renderPeople(); openSignup(id); // production: participant_roles insert / revoked_at update
+}
+/* ── Delete user — super admin only, warns, erases EVERYTHING about them.
+   Production: an owner-gated endpoint that cascades participant_roles,
+   agreement_acceptances, enrollments, logs, votes, email_log … (GDPR erasure). ── */
+/* Change email — super admin only (identity change, not a profile edit).
+   Production: owner-gated function updating participants.email + auth.users,
+   with re-verification mail; the email guard trigger blocks everyone else. */
+let emailTarget=null;
+function openEmailChange(id){ if(!isSuperAdmin()) return; const r=rosterById(id); if(!r) return; emailTarget=id;
+  document.getElementById('em-name').textContent=r.name;
+  const inp=document.getElementById('em-input'); inp.value=emailFor(r);
+  document.getElementById('em-modal').classList.add('open'); setTimeout(()=>inp.focus(),60); }
+function closeEmailChange(){ document.getElementById('em-modal').classList.remove('open'); emailTarget=null; }
+function confirmEmailChange(){ const v=document.getElementById('em-input').value.trim();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){ document.getElementById('em-input').focus(); return; }
+  const id=emailTarget; EMAIL_OVERRIDES[id]=v; closeEmailChange(); renderSignups(); if(id) openSignup(id); }
+let delTarget=null;
+function openDeleteUser(id){ const r=rosterById(id); if(!r||!isSuperAdmin()) return; delTarget=id;
+  document.getElementById('del-name').textContent=r.name;
+  document.getElementById('del-modal').classList.add('open'); }
+function closeDeleteUser(){ document.getElementById('del-modal').classList.remove('open'); delTarget=null; }
+function confirmDeleteUser(){
+  const id=delTarget; closeDeleteUser(); closeSignup(); if(!id) return;
+  if(id==='live'){ try{ localStorage.removeItem('olos.userState.v1'); localStorage.removeItem('olos.session.v1'); }catch(e){} }
+  else { const i=PEOPLE.findIndex(p=>p.id===id); if(i>=0) PEOPLE.splice(i,1); delete INTAKE[id]; }
+  renderSignups(); renderPeople();
+}
+function closeSignup(){ document.getElementById('sg-modal').classList.remove('open'); sgSel=null; }
 function renderAdminUsers(){
   const el=document.getElementById('admin-users'); if(!el) return;
   const admins=PEOPLE.filter(p=>p.roles.includes('Admin'));
@@ -558,7 +650,7 @@ function showAdminPanel(id){
   document.getElementById('apanel-'+id).classList.add('active');
   document.querySelectorAll('#admin-tabs .chip').forEach(c=>c.classList.toggle('active', c.dataset.panel===id));
 }
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closePermModal(); closeSignup(); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closePermModal(); closeSignup(); closeDeleteUser(); closeEmailChange(); } });
 
 /* ── Feedback — mirrored from index.html's widget. ── */
 const FEEDBACK_LOG=[];
