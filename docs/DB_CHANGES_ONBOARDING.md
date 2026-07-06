@@ -366,6 +366,22 @@ OLOS (checked at main, 2026-07-06) has none of these objects; its readers:
   can bite OLOS — if OLOS writes a status outside the list, extend the list.
   Verify with the DISTINCT query before applying.
 
+## Sync policy — onboarding ↔ OLOS (dev + prod), until integration
+
+One owner per shared thing; integration becomes a cutover, not a reconciliation.
+
+| Shared thing | Owner | The rule |
+|---|---|---|
+| **Schema / migrations** | **OLOS repo** | These 00033–00037 files land in OLOS's `supabase/migrations/` (they're numbered for it). Apply to **dev first**, test with onboarding pointed at dev, then promote to prod. The onboarding repo never runs its own migrations — this doc is design, not a second migration stream. |
+| **Agreement docs + versions** | **onboarding repo** | `docs/agreements/*.md` + the version strings in `tools/build-agreements.js` are the single source. The DB stores accepted version strings; OLOS renders from the same generated `agreements.js` when it integrates. Never fork the version strings. |
+| **Email templates** | one owner per email TYPE | Welcome/update summary → the Edge Function only. OLOS's five templates → `lib/email` only. Routes are disjoint, so no double-send. Integration = move the template into `lib/email`, retire the function. |
+| **Environments** | mirrored pair | Onboarding gets a dev/prod config (Supabase URL + function endpoint per env) matching OLOS's two Supabase projects. Everything tests against OLOS-dev; going to prod is two URLs. |
+| **Data contracts** | this doc | `created_via` values, enrollment status vocabulary ('interested' …), role names, agreement doc keys. Change them here first, then in code — both codebases read this table. |
+
+**End-state:** the funnel ports into OLOS's Next.js (per docs/HANDOFF.md) and the static
+app retires. Because both sides shared the same DB, version strings, and email semantics
+throughout, cutover is a routing change, not a data migration.
+
 ## Run order
 
 1. 00033 (roles + backfill) — additive
