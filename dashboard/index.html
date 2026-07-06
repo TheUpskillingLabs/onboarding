@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Home · The Upskilling Labs</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../font.css">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../system.css">
+<link rel="stylesheet" href="../app.css">
+</head>
+<body>
+<!-- HAND-WRITTEN app route shell — production: /dashboard (see docs/HANDOFF.md §2).
+     Home: the Learning Log (+ the weekly gate), setup checklist, todos, and your cycle status.
+     The signed-in nav, tab bar, ceremony views, and shared modals are injected at
+     boot by chrome.js + app.js (single source); this file owns only its panel
+     markup. Auth-guarded: signed-out visits bounce to ../index.html; the weekly
+     Learning Log gate bounces every page but Home to ../dashboard/. -->
+<div id="screens">
+  <div id="app-shell" class="view active light s-paper">
+    <div class="vscroll" id="app-scroll">
+      <div id="panel-dashboard" class="panel active">
+        <div class="app-cover s-cover grain on-dark">
+          <div class="m-orb"><svg viewBox="0 0 240 240" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:block;width:100%;height:100%">
+  <defs>
+    <radialGradient id="oc" cx="38%" cy="35%" r="58%"><stop offset="0%" stop-color="#0094A0"/><stop offset="62%" stop-color="rgba(0,148,160,0)"/></radialGradient>
+    <radialGradient id="or" cx="62%" cy="78%" r="65%"><stop offset="60%" stop-color="rgba(225,29,42,0)"/><stop offset="100%" stop-color="#E11D2A"/></radialGradient>
+    <linearGradient id="og" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#00D3E4"/><stop offset="60%" stop-color="#0094A0"/><stop offset="100%" stop-color="#007882"/></linearGradient>
+  </defs>
+  <circle cx="120" cy="120" r="116" fill="url(#oc)"/>
+  <circle cx="120" cy="120" r="116" fill="url(#or)"/>
+  <g transform="translate(20,40) scale(0.142)"><path d="M 0 900.84 C 532.341 651.368 841.069 454.81 1407.215 0 C 1190.699 365.98 1060.371 566.788 776.503 900.84 L 950.588 496.405 C 539.219 733.009 347.248 789.767 0 900.84 Z" fill="url(#og)"/></g>
+</svg></div>
+          <div class="container app-cover-inner">
+            <!-- Condensed identity header — the "admin view" of your own public presence. -->
+            <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+              <div class="avatar-lg" id="dash-avatar" style="flex-shrink:0;">AR</div>
+              <div style="flex:1;min-width:220px;">
+                <div class="lbl lbl-teal" style="margin-bottom:8px;">Member portal</div>
+                <h1 id="dash-greeting" class="t-h1">Welcome, Alex.</h1>
+                <p class="t-lede" id="dash-id-line" style="margin-top:8px;">Here's what's happening in the Labs right now.</p>
+                <a class="see" style="display:inline-block;margin-top:12px;color:#fff;" onclick="showProfile()">View your full profile →</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="container" style="padding-top:40px;padding-bottom:48px;">
+          <div class="dash">
+            <div>
+              <!-- Learning Log gate banner — rendered by applyLogGate() when the
+                   weekly log is overdue; everything below except the Learning Log
+                   section carries .gate-dim and locks until the member saves one. -->
+              <div id="log-gate-banner" style="display:none;"></div>
+              <div id="dash-cycle" class="gate-dim" style="display:none;margin-bottom:40px;"></div>
+              <!-- Setup leads for new members; it collapses to a strip once complete
+                   so the journal takes the top slot for established members. -->
+              <div id="setup-section" class="gate-dim" style="margin-bottom:40px;">
+                <div id="setup-full">
+              <div class="section-head"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">Your profile</div><h2 class="t-h2">Complete your profile</h2></div><span id="checklist-count" class="lbl">2 left</span></div>
+              <div id="checklist-items">
+                <div class="check-row"><input type="checkbox" onchange="tickChecklist(this)"><div><div class="t-h4" style="margin-bottom:2px;">Confirm your email</div><div class="t-small">Click the link we sent to your inbox</div></div></div>
+                <div class="check-row"><input type="checkbox" onchange="tickChecklist(this)"><div style="flex:1;"><div class="t-h4" style="margin-bottom:2px;">Join our Slack workspace</div><div class="t-small">Accept the invite — that's where the community lives</div></div><a class="btn btn-ghost-teal btn-sm" href="https://join.slack.com/t/theupskillinglabs/shared_invite/placeholder" target="_blank" rel="noopener" style="flex-shrink:0;align-self:center;">Open Slack →</a></div>
+                <div class="check-row" id="profile-checklist-row" style="cursor:pointer;" onclick="onProfileChecklistClick(this)"><input type="checkbox" id="profile-checklist-cb" onchange="tickChecklist(this)" onclick="event.stopPropagation()"><div style="flex:1;"><div class="t-h4" style="margin-bottom:2px;">Complete your member profile</div><div class="t-small">Add a bio so pods can find you</div></div><button class="btn btn-ghost-teal btn-sm" style="flex-shrink:0;align-self:center;">Start →</button></div>
+                <div id="role-items"></div>
+                </div>
+                <div id="setup-done-strip" style="display:none;align-items:center;justify-content:space-between;gap:12px;background:var(--white);border:1px solid var(--rule);border-radius:var(--r);padding:14px 18px;">
+                  <span class="t-small" style="font-weight:600;color:var(--teal-deep);">Setup · All done ✓</span>
+                  <a class="see" style="font-size:12px;" onclick="toggleSetupSection()">Show</a>
+                </div>
+              </div>
+              <!-- Learning Log — the weekly practice: a private health check (Poderator +
+                   admins only), three scaffolded prompts, and an optional share to the
+                   Discover feed. Replaces the Practice Journal + the public composer
+                   (docs/OLOS_BACKEND_CHANGES.md §6). Log as often as you like. -->
+              <div style="margin-bottom:40px;">
+                <div class="section-head"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">Weekly practice</div><h2 class="t-h2">Your Learning Log</h2></div><div style="text-align:right;"><div id="ll-due"></div><span class="t-small" id="ll-count"></span></div></div>
+                <div class="lcard" id="learning-log-card" style="padding:20px 22px;">
+                  <div class="lbl" style="margin-bottom:4px;">Health check</div>
+                  <p class="t-small" style="margin-bottom:12px;">Only your Poderator and The Labs team see this — never your pod or the feed.</p>
+                  <div class="ll-slider"><label class="t-small" for="ll-clarity">Clarity on my next steps</label><input type="range" id="ll-clarity" min="1" max="5" value="3" step="1" oninput="document.getElementById('ll-clarity-out').textContent=this.value"><output id="ll-clarity-out">3</output></div>
+                  <div class="ll-slider"><label class="t-small" for="ll-alignment">Alignment with my pod</label><input type="range" id="ll-alignment" min="1" max="5" value="3" step="1" oninput="document.getElementById('ll-alignment-out').textContent=this.value"><output id="ll-alignment-out">3</output></div>
+                  <label class="t-small" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:12px 0 0;"><input type="checkbox" id="ll-blocked" onchange="toggleBlocked()"> I’m currently blocked</label>
+                  <div id="ll-blocked-wrap" style="display:none;margin-top:10px;"><label class="t-small" for="ll-blocker" style="display:block;margin-bottom:6px;">What do you need?</label><input id="ll-blocker" class="ll-input" placeholder="e.g. 15 minutes with someone who knows the permits data"></div>
+
+                  <div class="lbl" style="margin:20px 0 10px;border-top:1px solid var(--rule);padding-top:16px;">This week</div>
+                  <label class="t-small ll-lbl" for="ll-accomplished">This week, I figured out / accomplished…</label>
+                  <input id="ll-accomplished" class="ll-input" placeholder="…how to get clean data out of the permits PDF" oninput="llSyncPreview()">
+                  <label class="t-small ll-lbl" for="ll-exploring">I’m currently exploring / stuck on…</label>
+                  <input id="ll-exploring" class="ll-input" placeholder="…whether residents actually want SMS updates" oninput="llSyncPreview()">
+                  <label class="t-small ll-lbl" for="ll-next">Next week, my focus is…</label>
+                  <input id="ll-next" class="ll-input" placeholder="…testing the guide with three librarians" oninput="llSyncPreview()">
+
+                  <div class="lbl" style="margin:20px 0 8px;border-top:1px solid var(--rule);padding-top:16px;">Share preview</div>
+                  <p class="t-body" id="ll-preview" style="color:var(--meta);">Your log reads back here as you type.</p>
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;">
+                    <label class="t-small" style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="ll-share"> Share this log to the Discover feed <span style="color:var(--meta);">· Labs members only</span></label>
+                    <button class="btn btn-teal btn-sm" onclick="saveLearningLog()">Log this week</button>
+                  </div>
+                  <div id="ll-recent" style="margin-top:14px;"></div>
+                </div>
+              </div>
+
+              </div>
+              <div class="section-head gate-dim" style="margin-top:40px;"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">Up next</div><h2 class="t-h2">Up next for you</h2></div><span class="see" onclick="goApp('events')">See all →</span></div>
+              <div class="cards two gate-dim" id="todos-container"></div>
+              <div id="dash-saved" class="gate-dim" style="display:none;margin-top:40px;"></div>
+            </div>
+            <aside class="gate-dim" style="display:flex;flex-direction:column;gap:16px;">
+              <div class="card" style="overflow:hidden;"><div class="media m-teal" style="aspect-ratio:16/9;"><div class="m-orb"><svg viewBox="0 0 240 240" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:block;width:100%;height:100%">
+  <defs>
+    <radialGradient id="oc" cx="38%" cy="35%" r="58%"><stop offset="0%" stop-color="#0094A0"/><stop offset="62%" stop-color="rgba(0,148,160,0)"/></radialGradient>
+    <radialGradient id="or" cx="62%" cy="78%" r="65%"><stop offset="60%" stop-color="rgba(225,29,42,0)"/><stop offset="100%" stop-color="#E11D2A"/></radialGradient>
+    <linearGradient id="og" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#00D3E4"/><stop offset="60%" stop-color="#0094A0"/><stop offset="100%" stop-color="#007882"/></linearGradient>
+  </defs>
+  <circle cx="120" cy="120" r="116" fill="url(#oc)"/>
+  <circle cx="120" cy="120" r="116" fill="url(#or)"/>
+  <g transform="translate(20,40) scale(0.142)"><path d="M 0 900.84 C 532.341 651.368 841.069 454.81 1407.215 0 C 1190.699 365.98 1060.371 566.788 776.503 900.84 L 950.588 496.405 C 539.219 733.009 347.248 789.767 0 900.84 Z" fill="url(#og)"/></g>
+</svg></div><div class="m-tag">Summer 2026</div></div><div class="card-body"><div class="t-h4" style="margin-bottom:6px;">Build Cycle is forming</div><p class="t-small" style="margin-bottom:16px;">Pod registration opens Mar 30. Join a pod and ship something real.</p><button class="btn btn-teal btn-sm btn-block" onclick="goApp('cycles')">View cycle</button></div></div>
+              <div class="lcard" style="padding:24px;"><div class="lbl" style="margin-bottom:14px;">Quick links</div><div style="display:flex;flex-direction:column;"><a onclick="goApp('discover')" style="font-size:14px;font-weight:600;color:var(--teal-deep);cursor:pointer;padding:12px 0;border-bottom:1px solid var(--rule);">Discover the Labs →</a><a onclick="openTriangulator()" style="font-size:14px;font-weight:600;color:var(--teal-deep);cursor:pointer;padding:12px 0;border-bottom:1px solid var(--rule);">Open the Triangulator →</a><a onclick="showProfile()" style="font-size:14px;font-weight:600;color:var(--teal-deep);cursor:pointer;padding:12px 0;border-bottom:1px solid var(--rule);">Your profile →</a><a href="https://www.every.org/theupskillinglabs" target="_blank" rel="noopener" style="font-size:14px;font-weight:600;color:var(--teal-deep);cursor:pointer;padding:12px 0 0;">Support The Labs →</a></div></div>
+            </aside>
+          </div>
+        </div>
+      </div>
+      <div id="foot-slot"></div>
+    </div>
+  </div>
+</div>
+<script>window.LABS_REL='../'; window.SEARCH_REL='../';</script>
+<script src="../shared.js"></script>
+<script src="../chrome.js"></script>
+<script src="../events/data.js"></script>
+<script src="../library/data.js"></script>
+<script src="../labs/data.js"></script>
+<script src="../cycles/data.js"></script>
+<script src="../pods/data.js"></script>
+<script src="../projects/data.js"></script>
+<script src="../people/data.js"></script>
+<script src="../app.js"></script>
+<script>App.boot('home');</script>
+<script src="../search.js"></script>
+</body>
+</html>

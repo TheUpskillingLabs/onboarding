@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Learning · The Upskilling Labs</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../font.css">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../system.css">
+<link rel="stylesheet" href="../app.css">
+</head>
+<body>
+<!-- HAND-WRITTEN app route shell — production: /learning (see docs/HANDOFF.md §2).
+     Learning: every session and guide, plus your saved items.
+     The signed-in nav, tab bar, ceremony views, and shared modals are injected at
+     boot by chrome.js + app.js (single source); this file owns only its panel
+     markup. Auth-guarded: signed-out visits bounce to ../index.html; the weekly
+     Learning Log gate bounces every page but Home to ../dashboard/. -->
+<div id="screens">
+  <div id="app-shell" class="view active light s-paper">
+    <div class="vscroll" id="app-scroll">
+      <div id="panel-learning" class="panel active">
+        <div class="container" style="padding-top:40px;padding-bottom:48px;">
+          <div class="section-head"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">Learning</div><h2 class="t-h1">Sessions, guides, and what you've saved</h2></div></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;" aria-label="Jump to section">
+            <button class="chip" onclick="scrollToSection('sec-events')">Events</button>
+            <button class="chip" onclick="scrollToSection('sec-library')">Library</button>
+            <button class="chip" onclick="scrollToSection('sec-saved')">Saved</button>
+          </div>
+          <div class="section-head" id="sec-events" style="margin-top:32px;"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">Workshops &amp; events · weekly</div><h2 class="t-h2">Drop into a session</h2></div><a class="see" href="../events/index.html">Public page →</a></div>
+          <div class="cat-scroll" id="event-cats"></div>
+          <!-- Rendered from EVENTS — each card links to its real events/{slug}/ page -->
+          <div class="cards dense all" style="margin-top:8px;" id="panel-events-cards"></div>
+          <div class="section-head" id="sec-library" style="margin-top:40px;"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">Learning Library · on-demand</div><h2 class="t-h2">Learn at your own pace</h2></div><a class="see" href="../library/index.html">Public page →</a></div>
+          <!-- Rendered from RESOURCES — each card links to its real library/{slug}/ page -->
+          <div class="cards dense all" id="panel-resources-cards"></div>
+          <div class="section-head" id="sec-saved" style="margin-top:40px;"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">Saved</div><h2 class="t-h2">Your bookmarks</h2></div></div>
+          <div id="bm-empty" style="display:none;"><div class="lcard" style="padding:32px;text-align:center;"><p class="t-body" style="color:var(--meta);">Nothing saved yet. Tap the heart on any workshop, guide, or lab to keep it here.</p></div></div>
+          <div class="cards dense all" id="bm-list"></div>
+        </div>
+      </div>
+      <div id="foot-slot"></div>
+    </div>
+  </div>
+</div>
+<script>window.LABS_REL='../'; window.SEARCH_REL='../';</script>
+<script src="../shared.js"></script>
+<script src="../chrome.js"></script>
+<script src="../events/data.js"></script>
+<script src="../library/data.js"></script>
+<script src="../labs/data.js"></script>
+<script src="../cycles/data.js"></script>
+<script src="../pods/data.js"></script>
+<script src="../projects/data.js"></script>
+<script src="../people/data.js"></script>
+<script src="../app.js"></script>
+<script>App.boot('learning');</script>
+<script src="../search.js"></script>
+</body>
+</html>

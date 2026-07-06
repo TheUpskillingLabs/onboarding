@@ -1,0 +1,288 @@
+/* ════════ system.css — The Upskilling Labs shared component layer ════════
+   THE single source for every component the whole site shares: type scale,
+   buttons, cards/teasers, media/orb frames, section heads, chips, kv rows,
+   status pills, modals, gallery, detail layout, search button, and the
+   generated-page chrome (pgnav/crumbs/upsell/pgfoot).
+   Load order on every page: font.css → tokens.css → system.css → the page's
+   own <style> (file-specific vocabulary only — layered after, so it wins).
+   The home page (index.html) is the reference design; these rules were
+   extracted from it verbatim. If a shared component changes, it changes HERE. */
+
+/* ── reset + base ── */
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html { -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+body { font-family:"Geologica",system-ui,sans-serif; font-weight:400; font-size:16px; line-height:24px; color:var(--ink); background:var(--paper); min-height:100svh; }
+a { color:inherit; text-decoration:none; }
+button,input,select,textarea { font-family:inherit; }
+
+/* ── grain ── */
+.grain { position:relative; }
+.grain::before { content:""; position:absolute; inset:0; background-image:var(--grain); mix-blend-mode:overlay; opacity:.5; pointer-events:none; }
+.grain > * { position:relative; }
+
+/* ── type scale ── */
+.t-display { font-weight:700; font-size:44px; line-height:48px; letter-spacing:-.03em; }
+.t-h1 { font-weight:700; font-size:32px; line-height:36px; letter-spacing:-.026em; }
+.t-h2 { font-weight:700; font-size:26px; line-height:32px; letter-spacing:-.02em; }
+.t-h3 { font-weight:600; font-size:20px; line-height:28px; letter-spacing:-.016em; }
+.t-h4 { font-weight:600; font-size:17px; line-height:24px; letter-spacing:-.01em; }
+.t-lede { font-weight:400; font-size:18px; line-height:28px; letter-spacing:-.01em; color:var(--slate); }
+.t-body { font-weight:400; font-size:16px; line-height:24px; color:var(--charcoal); }
+.t-small { font-weight:400; font-size:13px; line-height:20px; color:var(--meta); }
+.lbl { font-weight:500; font-size:12px; line-height:16px; letter-spacing:.10em; text-transform:uppercase; color:var(--meta); }
+.lbl-teal { color:var(--teal-deep); }
+.idx { font-weight:700; font-size:18px; line-height:24px; letter-spacing:-.01em; color:var(--teal-deep); }
+
+/* ── buttons ── */
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; border:none; border-radius:var(--r); font-weight:600; font-size:15px; letter-spacing:.01em; cursor:pointer; transition:opacity .15s, transform .1s, box-shadow .15s, background .15s; white-space:nowrap; padding:15px 24px; text-decoration:none; }
+.btn:active { transform:scale(.98); }
+.btn-block { width:100%; }
+.btn-red { background:var(--red); color:#fff; }
+.btn-teal { background:var(--teal-deep); color:#fff; } /* teal-deep for AA contrast on button text (UX_FINDINGS F2); --teal stays the accent */
+.btn-ink { background:var(--ink); color:#fff; }
+.btn-white { background:#fff; color:var(--ink); }
+.btn-ghost { background:transparent; color:var(--ink); border:1px solid var(--rule-ink); }
+.btn-ghost-teal { background:transparent; color:var(--teal-deep); border:1px solid rgba(0,148,160,.45); }
+.btn-link { background:none; border:none; color:inherit; font-weight:600; font-size:14px; cursor:pointer; padding:12px; }
+.btn-sm { font-size:13px; padding:11px 16px; }
+.btn:disabled { opacity:.34; cursor:not-allowed; pointer-events:none; }
+.btn:focus-visible, a:focus-visible, button:focus-visible, .chip:focus-visible, .see:focus-visible, .heart:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
+@media (hover:hover) { .btn:hover { opacity:.9; } .btn-red:hover, .btn-teal:hover, .btn-ink:hover { box-shadow:var(--shadow); opacity:1; } }
+
+/* ── layout: container, sections, section heads ── */
+.container { max-width:var(--maxw); margin:0 auto; padding:0 var(--pad); }
+.section { padding:56px 0; }
+.section + .section { padding-top:0; }
+.section-head { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:24px; padding-bottom:14px; border-bottom:2px solid var(--ink); }
+.section-head .see { font-size:13px; font-weight:600; color:var(--teal-deep); cursor:pointer; white-space:nowrap; }
+.see { cursor:pointer; }
+
+/* ── cards (teasers) — every card is metadata for its real page ── */
+.card { background:var(--white); border:1px solid var(--rule); border-radius:var(--r); overflow:hidden; transition:transform .2s cubic-bezier(.2,.7,.1,1), box-shadow .2s; }
+a.card { display:block; color:inherit; text-decoration:none; } /* teaser cards are real links to their generated pages */
+@media (hover:hover) { .card.tappable { cursor:pointer; } .card.tappable:hover { transform:translateY(-4px); box-shadow:var(--shadow-lg); border-color:transparent; } .card.tappable:hover .media > .m-orb { transform:scale(1.06); } }
+.lcard { background:var(--white); border:1px solid var(--rule); border-radius:var(--r); }
+.card-body { padding:18px 20px; }
+.card-row { display:flex; align-items:center; gap:10px; }
+.cards { display:grid; grid-template-columns:1fr; gap:16px; }
+.cards.dense { grid-template-columns:1fr; gap:14px; align-items:start; }
+.cards.dense .card-body { padding:12px 14px; }
+.cards.dense .media { aspect-ratio:4/3; }
+.cards.dense .t-h4 { font-size:15px; line-height:20px; }
+.cards.dense .heart { width:32px; height:32px; }
+@media (min-width:700px) { .cards.dense { grid-template-columns:repeat(2,1fr); } }
+@media (min-width:1024px) { .cards.dense { grid-template-columns:repeat(6,1fr); gap:20px; } .cards.dense > .card:nth-child(n+7) { display:none; } }
+/* directory pages show the full catalog — undo the landing's six-tile cap */
+.cards.dense.all > .card:nth-child(n+7) { display:block; }
+
+/* ── media frames + orb gradients ── */
+.media { position:relative; aspect-ratio:16/10; border-radius:var(--r); overflow:hidden; background:var(--navy); }
+.media::after { content:""; position:absolute; inset:0; background-image:var(--grain); mix-blend-mode:overlay; opacity:.45; pointer-events:none; }
+.media .m-orb { position:absolute; width:148px; height:148px; right:-26px; bottom:-34px; opacity:.95; transition:transform .3s ease; filter:drop-shadow(0 8px 24px rgba(0,0,0,.3)); }
+.media .m-tag { position:absolute; top:12px; left:12px; padding:6px 12px; border-radius:var(--r); background:rgba(255,255,255,.92); color:var(--ink); font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; backdrop-filter:blur(4px); }
+.m-teal { background:radial-gradient(120% 120% at 0% 100%, rgba(0,148,160,.7), transparent 62%), linear-gradient(150deg, var(--ink), var(--navy)); }
+.m-forest { background:radial-gradient(120% 120% at 100% 0%, rgba(0,148,160,.55), transparent 60%), linear-gradient(150deg, var(--forest), var(--ink)); }
+.m-navy { background:radial-gradient(110% 110% at 50% 120%, rgba(0,148,160,.5), transparent 60%), linear-gradient(160deg, var(--navy), var(--ink)); }
+
+/* ── heart save ── */
+.heart { position:absolute; top:10px; right:10px; width:38px; height:38px; border-radius:50%; background:rgba(0,20,27,.32); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; border:none; cursor:pointer; transition:transform .12s; z-index:2; }
+.heart:active { transform:scale(.86); }
+.heart svg { width:20px; height:20px; stroke:#fff; fill:none; stroke-width:2; }
+.heart.saved svg { fill:var(--red); stroke:#fff; }
+
+/* ── chips ── */
+.cat-scroll { display:flex; gap:8px; overflow-x:auto; padding:4px var(--pad); margin:0 calc(-1*var(--pad)) 8px; -webkit-overflow-scrolling:touch; }
+.cat-scroll::-webkit-scrollbar { height:0; }
+.chip { flex-shrink:0; padding:9px 16px; border-radius:var(--r); border:1px solid var(--rule); background:var(--white); font-size:13px; font-weight:600; color:var(--charcoal); cursor:pointer; white-space:nowrap; transition:all .14s; }
+.chip.active { background:var(--ink); color:#fff; border-color:var(--ink); }
+.chip:active { transform:scale(.97); }
+
+/* ── kv rows + status pills ── */
+.kv { display:flex; gap:12px; padding:10px 0; border-bottom:1px solid var(--rule); }
+.kv:last-of-type { border-bottom:none; }
+.kv .k { width:96px; flex-shrink:0; }
+.status { display:inline-flex; align-items:center; gap:7px; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--meta); }
+.status::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--meta-soft); }
+.status.active { color:var(--teal-deep); }
+.status.active::before { background:var(--teal); box-shadow:0 0 0 3px rgba(0,148,160,.18); }
+.status.forming { color:var(--slate); }
+.status.forming::before { background:var(--teal-deep); }
+.status.soon::before { background:var(--meta-soft); }
+.status.risk { color:var(--red); }
+.status.risk::before { background:var(--red); box-shadow:0 0 0 3px rgba(225,29,42,.14); }
+
+/* ── modal shell ── */
+.gate-modal { display:none; position:fixed; inset:0; z-index:200; background:rgba(0,20,27,.58); backdrop-filter:blur(4px); padding:var(--pad); align-items:flex-end; justify-content:center; }
+.gate-modal.open { display:flex; animation:gateFade .2s ease; }
+.gate-sheet { position:relative; width:100%; max-width:420px; padding:32px 24px 24px; border-radius:var(--r) var(--r) 0 0; background:var(--paper); box-shadow:var(--shadow-lg); animation:gateUp .24s cubic-bezier(.2,.8,.25,1); }
+.gate-close { position:absolute; top:14px; right:14px; width:36px; height:36px; display:flex; align-items:center; justify-content:center; background:none; border:none; cursor:pointer; color:var(--meta); border-radius:50%; }
+.gate-close:hover { background:rgba(0,20,27,.06); color:var(--ink); }
+@keyframes gateFade { from { opacity:0; } to { opacity:1; } }
+@keyframes gateUp { from { transform:translateY(24px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+@media (min-width:1024px) { .gate-modal { align-items:center; } .gate-sheet { border-radius:var(--r); } }
+
+/* ── metro search (the labs surfaces' front door) ── */
+.metro-search { position:relative; max-width:560px; margin-bottom:20px; }
+.metro-search svg { position:absolute; left:18px; top:50%; transform:translateY(-50%); width:18px; height:18px; stroke:var(--meta); pointer-events:none; }
+.metro-search input { width:100%; border:1px solid var(--rule); border-radius:var(--r); background:var(--white); padding:16px 18px 16px 48px; font:inherit; font-size:16px; color:var(--ink); box-shadow:var(--shadow); transition:box-shadow .14s, border-color .14s; }
+.metro-search input:focus { outline:none; border-color:var(--teal); box-shadow:var(--shadow-lg); }
+.metro-search input::placeholder { color:var(--meta-soft); }
+
+/* ── nav search button (quiet by design — owner decision) ── */
+.search-btn { width:42px; height:42px; border-radius:var(--r); display:flex; align-items:center; justify-content:center; background:transparent; border:none; cursor:pointer; color:var(--od1); flex-shrink:0; }
+.search-btn:hover { background:rgba(255,255,255,.08); }
+
+/* ── gallery (event detail) ── */
+.gallery { position:relative; }
+.gallery-track { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; border-radius:var(--r); gap:0; }
+.gallery-track::-webkit-scrollbar { height:0; }
+.gallery-track .media { flex:0 0 100%; scroll-snap-align:center; aspect-ratio:16/10; border-radius:var(--r); }
+.gallery-dots { position:absolute; bottom:12px; left:0; right:0; display:flex; gap:6px; justify-content:center; pointer-events:none; }
+.gallery-dots i { width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,.55); transition:all .2s; }
+.gallery-dots i.on { background:#fff; width:18px; border-radius:3px; }
+
+/* ── detail two-column (mobile stub; desktop grid below) ── */
+.detail { }
+.detail-aside { display:none; }
+.detail-bottom { position:sticky; bottom:0; background:linear-gradient(to top, var(--paper) 70%, transparent); padding:16px 0 20px; margin-top:24px; }
+
+/* ════ THE CHROME — both nav bars, single-sourced in chrome.js ════
+   .sitenav = the public bar (landing + every generated page + stories):
+     logo · search field · The Work ▾ · Events · Library · Cities · Log in · Join.
+   .sitenav.appnav = the signed-in bar: logo · search · Home · My Cycle ·
+     Learning · Directory · avatar ("Me" is the avatar menu, Profile button first).
+   Two DELIBERATE breakpoints: the public bar carries six destinations + a search
+   field + two CTAs and needs the room — it collapses at 1024px; the app bar has
+   four short labels and swaps to the bottom tab bar at 768px (phone furniture).
+   The reconciliation is single-sourcing, not a single number.
+   Auth state: chrome.js sessionChrome() sets body.labs-in — #pn-out/#pn-in and
+   .hm-out/.hm-in swap on it below. */
+.sitenav { position:sticky; top:0; z-index:60; background:var(--ink); }
+.sitenav-inner { max-width:var(--maxw); margin:0 auto; padding:8px var(--pad); min-height:76px; display:flex; align-items:center; gap:12px; }
+.sitenav-brand { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.sitenav-brand img { height:56px; width:auto; display:block; }
+.sitenav .nav-links { display:none; align-items:center; gap:2px; }
+.sitenav .nav-link { font-size:15px; font-weight:600; letter-spacing:.01em; color:var(--od2); padding:9px 14px; border-radius:var(--r); cursor:pointer; text-decoration:none; background:none; border:none; font-family:inherit; transition:color .15s, background .15s; }
+.sitenav .nav-link:hover { color:var(--od1); background:rgba(255,255,255,.06); }
+.sitenav .nav-link.active { color:var(--od1); background:rgba(255,255,255,.12); }
+.sitenav-auth { align-items:center; gap:10px; }
+.sitenav-cta { background:var(--red); color:#fff; padding:11px 18px; border-radius:var(--r); font-size:14px; font-weight:600; text-decoration:none; flex-shrink:0; }
+.pg-avatar { width:36px; height:36px; border-radius:50%; background:var(--teal-deep); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; letter-spacing:.02em; text-decoration:none; flex-shrink:0; }
+/* auth swap — default (signed out): #pn-out on, #pn-in off; body.labs-in flips */
+.sitenav #pn-out { display:flex; }
+.sitenav #pn-out .pn-login { display:none; }
+.sitenav #pn-in { display:none; }
+body.labs-in .sitenav #pn-out { display:none; }
+body.labs-in .sitenav #pn-in { display:flex; align-items:center; gap:10px; }
+.sitenav #pn-in .nav-link { display:none; }
+.ham-menu .hm-in { display:none; }
+body.labs-in .ham-menu .hm-out { display:none; }
+body.labs-in .ham-menu .hm-in { display:block; }
+/* the LinkedIn-style search field (a launcher for search.js's overlay) —
+   collapses to the quiet icon below each bar's breakpoint */
+.nav-search { display:none; align-items:center; gap:10px; flex:0 1 260px; min-width:0; background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.14); border-radius:var(--r); color:var(--od2); padding:10px 14px; font-family:inherit; font-size:14px; font-weight:500; cursor:pointer; text-align:left; transition:background .15s, color .15s; }
+.nav-search:hover, .nav-search:focus-visible { background:rgba(255,255,255,.16); color:var(--od1); outline:none; }
+.nav-search svg { flex-shrink:0; }
+.nav-search span { overflow:hidden; white-space:nowrap; }
+/* the mobile fallback icon pushes the right cluster over (autos below 1024);
+   scoped color so app.css's generic .icon-btn (ink) can't hide it on the dark bar */
+.nav-search-icon { display:flex; margin-left:auto; }
+.sitenav .search-btn { color:var(--od1); }
+/* The Work ▾ dropdown */
+.workmenu { position:relative; display:inline-flex; }
+.workmenu .wm-caret { font-size:10px; opacity:.7; margin-left:2px; }
+.workmenu-list { display:none; position:absolute; top:calc(100% + 8px); left:0; min-width:180px; background:var(--white); border:1px solid var(--rule); border-radius:var(--r); box-shadow:var(--shadow-lg); padding:8px; z-index:210; flex-direction:column; }
+.workmenu-list.open { display:flex; }
+.workmenu-list a { display:block; padding:11px 12px; border-radius:var(--r); color:var(--ink); font-size:14px; font-weight:500; text-decoration:none; }
+.workmenu-list a:hover, .workmenu-list a:focus-visible { background:rgba(0,148,160,.08); outline:none; }
+/* hamburger (public bar, <1024px) */
+.sitenav .ham-btn { display:flex; align-items:center; justify-content:center; width:42px; height:42px; background:none; border:none; cursor:pointer; color:var(--od1); flex-shrink:0; }
+.sitenav .ham-btn .close-icon { display:none; }
+.sitenav .ham-btn.open .ham-icon { display:none; }
+.sitenav .ham-btn.open .close-icon { display:block; }
+.ham-menu { display:none; flex-direction:column; background:var(--ink); padding:4px var(--pad) 16px; }
+.ham-menu.open { display:flex; }
+.ham-menu .nav-link { color:var(--od2); font-size:16px; font-weight:500; padding:15px 2px; border-radius:0; border-bottom:1px solid rgba(255,255,255,.08); }
+.ham-menu .nav-link:last-child { border-bottom:none; }
+.ham-menu .nav-link:hover { color:var(--od1); background:transparent; }
+/* the landing variant: fixed over the hero, gradient fade, hide-on-scroll morph */
+.sitenav.overhero { position:fixed; top:0; left:0; right:0; background:linear-gradient(to bottom, var(--ink) 0%, transparent 100%); transition:transform .35s ease, opacity .35s ease; }
+.sitenav.overhero .ham-menu { background:var(--ink); }
+.sitenav.nav-hidden { transform:translateY(-100%); opacity:0; pointer-events:none; }
+@media (prefers-reduced-motion: reduce) { .sitenav.overhero { transition:none; } .ham-menu.open { animation:none; } }
+/* public bar breakpoint */
+@media (min-width:1024px) {
+  .sitenav .nav-links { display:flex; }
+  .sitenav .nav-search { display:flex; }
+  .sitenav .nav-search-icon { display:none; }
+  .sitenav .sitenav-auth { margin-left:auto; }
+  .sitenav #pn-out .pn-login { display:inline-block; }
+  .sitenav #pn-in .nav-link { display:inline-block; }
+  .sitenav .ham-btn, .sitenav .ham-menu { display:none !important; }
+}
+/* the app bar variant: LinkedIn skeleton — logo + search left, destinations
+   right-aligned by the avatar; destinations in at 768px (tabbar out — rules
+   live with the tabbar block below); search field also graduates at 768px */
+.persona-lbl { font-size:12px; font-weight:600; letter-spacing:.10em; text-transform:uppercase; color:var(--teal); border:1px solid rgba(0,148,160,.5); border-radius:var(--r); padding:5px 10px; flex-shrink:0; }
+.sitenav.appnav .avatar-wrap { margin-left:12px; }
+.sitenav.appnav .exit-member { margin-left:auto; }
+@media (min-width:768px) {
+  .sitenav.appnav .nav-links { display:flex; margin-left:auto; }
+  .sitenav.appnav .nav-search { display:flex; }
+  .sitenav.appnav .nav-search-icon { display:none; }
+}
+/* the app bottom tab bar (phone furniture, <768px) — real links on app pages */
+.tabbar { position:fixed; bottom:0; left:0; right:0; z-index:50; display:flex; background:rgba(255,255,255,.94); backdrop-filter:blur(12px); border-top:1px solid var(--rule); padding:8px 8px max(12px, env(safe-area-inset-bottom)); }
+.tabbar .tab { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:6px 0; background:none; border:none; cursor:pointer; color:var(--meta); text-decoration:none; transition:color .15s; }
+.tabbar .tab svg { width:24px; height:24px; }
+.tabbar .tab span { font-size:10px; font-weight:600; letter-spacing:.02em; }
+.tabbar .tab.active { color:var(--teal-deep); }
+.tabbar .tab .tab-avatar { width:24px; height:24px; border-radius:50%; background:var(--teal-deep); color:#fff; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; }
+@media (min-width:768px) { .tabbar { display:none; } }
+/* avatar account menu (shared.js contract: #avatar-menu inside .avatar-wrap) */
+.avatar-wrap { position:relative; }
+.appbar-avatar { width:42px; height:42px; border-radius:50%; background:var(--teal); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:14px; cursor:pointer; flex-shrink:0; }
+#avatar-menu { position:absolute; top:calc(100% + 10px); right:0; min-width:230px; background:var(--white); border:1px solid var(--rule); border-radius:var(--r); box-shadow:var(--shadow-lg); padding:8px; z-index:210; color:var(--ink); }
+.menu-item { display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:none; border:none; border-radius:var(--r); padding:11px 12px; font-size:14px; font-weight:500; font-family:inherit; color:var(--ink); cursor:pointer; text-decoration:none; }
+.menu-item:hover, .menu-item:focus-visible { background:rgba(0,148,160,.08); outline:none; }
+.menu-item .dot { width:16px; height:16px; border-radius:50%; border:2px solid var(--meta-soft); flex-shrink:0; }
+.menu-item .dot.on { border-color:var(--teal); background:radial-gradient(circle at center, var(--teal) 0 4px, transparent 5px); }
+.menu-rule { height:1px; background:var(--rule); margin:6px 4px; }
+/* the Profile entry — a filled button, first in the menu (owner decision) */
+.menu-item.menu-profile-btn { background:var(--teal); color:#fff; font-weight:600; justify-content:center; margin-bottom:2px; }
+.menu-item.menu-profile-btn:hover, .menu-item.menu-profile-btn:focus-visible { background:var(--teal-deep); }
+/* the weekly Learning Log gate dims the chrome (the gate itself is enforced by
+   app.js — showView routing + per-page redirects); Home stays reachable */
+body.log-locked .appnav .nav-link:not(#nav-home) { opacity:.35; pointer-events:none; }
+body.log-locked .tabbar .tab:not(#tab-home) { opacity:.35; pointer-events:none; }
+.crumbs { display:flex; align-items:center; gap:8px; padding:20px 0 0; font-size:13px; color:var(--meta); }
+.crumbs a { color:var(--teal-deep); text-decoration:none; font-weight:600; }
+.crumbs .sep { color:var(--meta-soft); }
+.upsell { position:fixed; bottom:0; left:0; right:0; z-index:50; background:var(--ink); color:var(--od1); padding:12px var(--pad); display:flex; align-items:center; justify-content:center; gap:16px; flex-wrap:wrap; box-shadow:0 -8px 30px rgba(0,20,27,.25); }
+.upsell p { font-size:14px; font-weight:600; color:#fff; }
+.upsell .t-small { color:var(--od2); }
+body.has-upsell { padding-bottom:76px; }
+.pgfoot { background:var(--ink); color:var(--od2); margin-top:64px; }
+.pgfoot-inner { max-width:var(--maxw); margin:0 auto; padding:40px var(--pad); display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; font-size:13px; }
+.pgfoot a { color:var(--od1); text-decoration:none; font-weight:600; }
+
+/* ── responsive: tablet + desktop ── */
+@media (min-width:768px) {
+  .cards { grid-template-columns:repeat(2,1fr); gap:24px; }
+  .cards.two { grid-template-columns:1fr; }
+}
+@media (min-width:1024px) {
+  .t-display { font-size:76px; line-height:80px; letter-spacing:-.04em; }
+  .t-h1 { font-size:48px; line-height:52px; letter-spacing:-.034em; }
+  .t-h2 { font-size:34px; line-height:40px; }
+  .t-h3 { font-size:24px; line-height:32px; }
+  .t-lede { font-size:20px; line-height:32px; }
+  .cards.three { grid-template-columns:repeat(3,1fr); }
+  .detail { display:grid; grid-template-columns:1fr 360px; gap:48px; align-items:start; }
+  .detail-aside { display:block; position:sticky; top:96px; }
+  .detail-bottom { display:none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card, .btn, .media .m-orb, .chip, .heart { transition:none; }
+  .gate-modal.open, .gate-sheet { animation:none; }
+}

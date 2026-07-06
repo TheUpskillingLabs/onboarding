@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Your profile · The Upskilling Labs</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../font.css">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../system.css">
+<link rel="stylesheet" href="../app.css">
+</head>
+<body>
+<!-- HAND-WRITTEN app route shell — production: /me (see docs/HANDOFF.md §2).
+     Me: your profile — badges, portfolio, updates, mentor/volunteer sections.
+     The signed-in nav, tab bar, ceremony views, and shared modals are injected at
+     boot by chrome.js + app.js (single source); this file owns only its panel
+     markup. Auth-guarded: signed-out visits bounce to ../index.html; the weekly
+     Learning Log gate bounces every page but Home to ../dashboard/. -->
+<div id="screens">
+  <div id="app-shell" class="view active light s-paper">
+    <div class="vscroll" id="app-scroll">
+      <!-- The owner profile panel is mounted from app.js's PROFILE_PANEL_HTML —
+           the same single source directory/ uses for visitor mode. -->
+      <div id="profile-slot"></div>
+      <div id="foot-slot"></div>
+    </div>
+  </div>
+</div>
+<script>window.LABS_REL='../'; window.SEARCH_REL='../';</script>
+<script src="../shared.js"></script>
+<script src="../chrome.js"></script>
+<script src="../events/data.js"></script>
+<script src="../library/data.js"></script>
+<script src="../labs/data.js"></script>
+<script src="../cycles/data.js"></script>
+<script src="../pods/data.js"></script>
+<script src="../projects/data.js"></script>
+<script src="../people/data.js"></script>
+<script src="../app.js"></script>
+<script>App.boot('me');</script>
+<script src="../search.js"></script>
+</body>
+</html>

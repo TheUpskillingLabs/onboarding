@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+<title>My Cycle · The Upskilling Labs</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../font.css">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../system.css">
+<link rel="stylesheet" href="../app.css">
+</head>
+<body>
+<!-- HAND-WRITTEN app route shell — production: /my-cycle (see docs/HANDOFF.md §2).
+     My Cycle: the formation pipeline — situations, proposals, ballot, teams, commitments.
+     The signed-in nav, tab bar, ceremony views, and shared modals are injected at
+     boot by chrome.js + app.js (single source); this file owns only its panel
+     markup. Auth-guarded: signed-out visits bounce to ../index.html; the weekly
+     Learning Log gate bounces every page but Home to ../dashboard/. -->
+<div id="screens">
+  <div id="app-shell" class="view active light s-paper">
+    <div class="vscroll" id="app-scroll">
+      <div id="panel-cycles" class="panel active">
+        <div class="container" style="padding-top:32px;padding-bottom:48px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span class="live-dot"></span><span class="lbl lbl-teal">Current cycle · Summer 2026</span></div>
+          <h1 class="t-h1" style="margin-bottom:8px;">Civic &amp; Elections</h1>
+          <p class="t-lede" style="margin-bottom:28px;">Washington, DC · Kickoff Jul 14 · 13 weeks · Showcase Summit Oct 13 · An Open Cycle — every project is open source</p>
+          <div class="media m-forest" style="aspect-ratio:21/9;margin-bottom:28px;"><div class="m-orb"><svg viewBox="0 0 240 240" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:block;width:100%;height:100%">
+  <defs>
+    <radialGradient id="oc" cx="38%" cy="35%" r="58%"><stop offset="0%" stop-color="#0094A0"/><stop offset="62%" stop-color="rgba(0,148,160,0)"/></radialGradient>
+    <radialGradient id="or" cx="62%" cy="78%" r="65%"><stop offset="60%" stop-color="rgba(225,29,42,0)"/><stop offset="100%" stop-color="#E11D2A"/></radialGradient>
+    <linearGradient id="og" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#00D3E4"/><stop offset="60%" stop-color="#0094A0"/><stop offset="100%" stop-color="#007882"/></linearGradient>
+  </defs>
+  <circle cx="120" cy="120" r="116" fill="url(#oc)"/>
+  <circle cx="120" cy="120" r="116" fill="url(#or)"/>
+  <g transform="translate(20,40) scale(0.142)"><path d="M 0 900.84 C 532.341 651.368 841.069 454.81 1407.215 0 C 1190.699 365.98 1060.371 566.788 776.503 900.84 L 950.588 496.405 C 539.219 733.009 347.248 789.767 0 900.84 Z" fill="url(#og)"/></g>
+</svg></div><div class="m-tag">13-week Build Cycle</div></div>
+          <div class="phase-band"><div class="phase-segment"></div><div class="phase-segment"></div><div class="phase-segment"></div></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-bottom:8px;"><div class="t-small" style="font-weight:600;color:var(--ink);font-size:11px;">Problem Sprint<button class="info-dot" aria-label="About the Problem Sprint" onclick="openPhaseInfo('problem')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.5" r="0.6" fill="currentColor" stroke="none"/></svg></button></div><div class="t-small" style="font-weight:600;color:var(--ink);text-align:center;font-size:11px;">Frame Sprint<button class="info-dot" aria-label="About the Frame Sprint" onclick="openPhaseInfo('frame')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.5" r="0.6" fill="currentColor" stroke="none"/></svg></button></div><div class="t-small" style="font-weight:600;color:var(--ink);text-align:right;font-size:11px;">Building<button class="info-dot" aria-label="About the Building phase" onclick="openPhaseInfo('building')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.5" r="0.6" fill="currentColor" stroke="none"/></svg></button></div></div>
+          <div class="week-scroll"><div class="week-rail" id="week-rail"></div></div>
+          <!-- "Your commitments" — the dated anchor events + anytime .ics, rendered for cycle members (renderCycleCommitments) -->
+          <div id="cycle-commitments-wrap" style="display:none;margin-top:36px;"></div>
+          <div class="cards two" style="margin-top:36px;">
+            <div class="lcard" style="padding:24px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><span class="live-dot"></span><span class="lbl lbl-teal">Next window</span></div><div class="t-h4" style="margin-bottom:6px;">Pod Registration</div><p class="t-small" style="margin-bottom:16px;">Opens Aug 3 · Weeks 3–4. Join a pod and ship something real.</p><button class="btn btn-teal btn-sm" onclick="openPodChooser()">Join a pod</button></div>
+            <div class="lcard" style="padding:24px;"><div class="lbl" style="margin-bottom:14px;">Later window</div><div class="t-h4" style="margin-bottom:6px;">Project Registration</div><p class="t-small" style="margin-bottom:16px;">Opens Sep 14 · Week 9. Register for a team formed from the winning proposals.</p><button class="btn btn-ghost btn-sm" disabled>Opens Sep 14</button></div>
+          </div>
+
+          <!-- Cycle formation — cycle-specific, pod-scoped. Situations are born from the
+               pod's Triangulator sensemaking; proposals and voting are member actions,
+               never public discovery. -->
+          <!-- TIER 1 · Problem Situations — communities of INQUIRY. Mapped in the
+               Triangulator during the Problem Sprint; PODS form around these (12–30 people).
+               They ask: what is really going on here? -->
+          <div id="cycle-situations-wrap" style="margin-top:44px;">
+            <div class="section-head"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">Month 1 · Problem Sprint</div><h2 class="t-h2">What this cycle is investigating</h2></div><span class="see" onclick="openTriangulator()">Open the Triangulator →</span></div>
+            <p class="t-body" style="max-width:62ch;margin-bottom:20px;">Nobody builds in week one. First, pods sit with real problems — mapped from what the community's field observations in the Triangulator. Each pod digs into one of these.</p>
+            <div class="cards two" id="cycle-situations"></div>
+          </div>
+
+          <!-- FORMATION · submit → budget-vote → tally → register (mirrors OLOS).
+               The phase comes from olos.cycleState.v1 — admin.html's Testing Controls
+               step it live; this section re-renders on the storage event. -->
+          <div id="cycle-formation-wrap" style="margin-top:44px;">
+            <div class="section-head"><div><div class="lbl lbl-teal" style="margin-bottom:8px;" id="formation-eyebrow">From the Hackathon · solution proposals</div><h2 class="t-h2" id="formation-head">Given what we now understand, what should we build?</h2></div></div>
+            <p class="t-body" id="formation-sub" style="max-width:62ch;margin-bottom:20px;"></p>
+            <div id="formation-note"></div>
+            <div id="formation-body"></div>
+          </div>
+        </div>
+      </div>
+      <div id="foot-slot"></div>
+    </div>
+  </div>
+</div>
+<script>window.LABS_REL='../'; window.SEARCH_REL='../';</script>
+<script src="../shared.js"></script>
+<script src="../chrome.js"></script>
+<script src="../events/data.js"></script>
+<script src="../library/data.js"></script>
+<script src="../labs/data.js"></script>
+<script src="../cycles/data.js"></script>
+<script src="../pods/data.js"></script>
+<script src="../projects/data.js"></script>
+<script src="../people/data.js"></script>
+<script src="../app.js"></script>
+<script>App.boot('cycle');</script>
+<script src="../search.js"></script>
+</body>
+</html>

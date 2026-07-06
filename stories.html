@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Upskilling Stories — The Upskilling Labs</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="font.css">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="system.css">
+<style>
+:root { --maxw:1180px; } /* stories reads narrower — file-specific override of the system token */
+
+/* type */
+.on-dark, .on-dark .t-display, .on-dark .t-h2 { color:var(--od1); }
+.on-dark .t-lede, .on-dark .t-body { color:var(--od2); }
+.on-dark .t-small, .on-dark .lbl { color:var(--od3); }
+.on-dark .lbl-teal { color:var(--teal); }
+
+/* buttons */
+.btn-lg { font-size:16px; padding:17px 30px; }
+/* Keyboard users get a visible position everywhere (UX_FINDINGS F5) */
+.btn:focus-visible, .choice:focus-visible, .tab:focus-visible, .nav-link:focus-visible,
+.see:focus-visible, .chip:focus-visible, .heart:focus-visible,
+.icon-btn:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
+
+/* surfaces */
+.s-cover { position:relative; background:linear-gradient(160deg, var(--ink) 0%, var(--navy) 55%, var(--forest) 130%); }
+
+/* nav — the logo only ever sits on dark navy */
+.topnav { position:sticky; top:0; z-index:50; background:var(--ink); border-bottom:1px solid rgba(255,255,255,.08); }
+.topnav-inner { max-width:var(--maxw); margin:0 auto; padding:12px var(--pad); display:flex; align-items:center; gap:16px; color:var(--od1); }
+.topnav .btn-ghost { color:var(--od1); border-color:rgba(255,255,255,.42); }
+
+/* spotlight cards (tinder-swipe-stories-style: photo-led, quote, expandable story) */
+.spot-grid { display:grid; grid-template-columns:1fr; gap:20px; align-items:start; }
+@media (min-width:1024px) { .spot-grid { grid-template-columns:repeat(2,1fr); } }
+.card { background:var(--white); border:1px solid var(--rule); border-radius:var(--r); overflow:hidden; }
+.card.tappable { cursor:pointer; transition:transform .18s ease, box-shadow .18s ease; }
+@media (hover:hover) { .card.tappable:hover { transform:translateY(-3px); box-shadow:var(--shadow-lg); } }
+.tappable:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
+.card-body { padding:18px 20px; }
+.spot-media { position:relative; aspect-ratio:16/10; overflow:hidden; }
+.spot-media::after { content:""; position:absolute; inset:0; background-image:var(--grain); mix-blend-mode:overlay; opacity:.45; pointer-events:none; }
+.spot-media .m-orb { position:absolute; width:148px; height:148px; right:-26px; bottom:-34px; opacity:.95; }
+.m-teal { background:radial-gradient(120% 120% at 0% 100%, rgba(0,148,160,.7), transparent 62%), linear-gradient(150deg, var(--ink), var(--navy)); }
+.m-forest { background:radial-gradient(120% 120% at 100% 0%, rgba(0,148,160,.55), transparent 60%), linear-gradient(150deg, var(--forest), var(--ink)); }
+.m-navy { background:radial-gradient(110% 110% at 50% 120%, rgba(0,148,160,.5), transparent 60%), linear-gradient(160deg, var(--navy), var(--ink)); }
+.spot-story { display:none; border-top:1px solid var(--rule); padding-top:14px; margin-top:14px; }
+.card.expanded .spot-story { display:block; }
+.card.expanded .spot-more .chev { transform:rotate(180deg); }
+.spot-more { display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:var(--teal-deep); margin-top:12px; }
+.spot-more .chev { transition:transform .2s ease; display:inline-flex; }
+.spot-tag { display:inline-block; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--teal-deep); background:rgba(0,148,160,.10); border-radius:var(--r); padding:4px 10px; }
+
+/* share modal */
+.gate-modal { display:none; position:fixed; inset:0; z-index:200; background:rgba(0,20,27,.58); backdrop-filter:blur(4px); padding:var(--pad); align-items:flex-end; justify-content:center; }
+.gate-modal.open { display:flex; animation:gateFade .2s ease; }
+.gate-sheet { position:relative; width:100%; max-width:460px; padding:32px 24px 24px; border-radius:var(--r) var(--r) 0 0; box-shadow:var(--shadow-lg); background:var(--paper); animation:gateUp .24s cubic-bezier(.2,.8,.25,1); max-height:86svh; overflow-y:auto; }
+.gate-close { position:absolute; top:14px; right:14px; width:36px; height:36px; display:flex; align-items:center; justify-content:center; background:none; border:none; cursor:pointer; color:var(--meta); border-radius:50%; }
+.gate-close:hover { background:rgba(0,20,27,.06); color:var(--ink); }
+@keyframes gateFade { from { opacity:0; } to { opacity:1; } }
+@keyframes gateUp { from { transform:translateY(24px); opacity:0; } to { transform:none; opacity:1; } }
+@media (min-width:640px) { .gate-modal { align-items:center; } .gate-sheet { border-radius:var(--r); } }
+.inp { width:100%; padding:12px 14px; border:1px solid var(--rule); border-radius:var(--r); font-size:16px; background:var(--white); color:var(--ink); }
+.inp:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
+
+.reveal { animation:pageIn .3s cubic-bezier(.2,.7,.1,1); }
+@keyframes pageIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce) { .reveal, .gate-modal.open, .gate-sheet { animation:none; } .card.tappable, .spot-more .chev { transition:none; } }
+
+@media (min-width:1024px) {
+  :root { --pad:40px; }
+  .t-display { font-size:64px; line-height:68px; letter-spacing:-.04em; }
+  .t-h2 { font-size:34px; line-height:40px; }
+}
+</style>
+</head>
+<body>
+
+<!-- The nav + footer are injected by chrome.js (mountPublicNav below) — the
+     same single source the generator bakes into every generated page. -->
+
+<!-- ═══ Hero ═══ -->
+<div class="s-cover grain on-dark">
+  <div class="container" style="padding-top:72px;padding-bottom:64px;">
+    <div class="lbl lbl-teal" style="margin-bottom:14px;">The Upskilling Labs · community</div>
+    <h1 class="t-display" style="margin-bottom:16px;">Upskiller Spotlights</h1>
+    <p class="t-lede" style="max-width:56ch;margin-bottom:28px;">Real people, real practice — what changes when you stop consuming education and start building in the open.</p>
+    <button class="btn btn-red btn-lg" onclick="openShare()">Share your story</button>
+  </div>
+</div>
+
+<main class="container reveal" style="padding-top:40px;padding-bottom:64px;">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;" id="spot-chips"></div>
+  <div class="spot-grid" id="spot-grid"></div>
+
+  <!-- closing CTA band -->
+  <div class="s-cover grain on-dark" style="border-radius:var(--r);margin-top:48px;overflow:hidden;">
+    <div style="padding:40px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:260px;">
+        <div class="lbl lbl-teal" style="margin-bottom:8px;">Your turn</div>
+        <h2 class="t-h2" style="margin-bottom:8px;">Every spotlight started as a first week</h2>
+        <p class="t-body">Tell the community what you practiced, what broke, and what changed. The Labs team edits with you before anything goes live.</p>
+      </div>
+      <button class="btn btn-red btn-lg" onclick="openShare()">Share your story</button>
+    </div>
+  </div>
+</main>
+
+<div id="foot-slot"></div>
+<div class="upsell" id="pg-upsell" style="display:none;"><p>Find your people. Build your edge.</p><span class="t-small">Free to join · run in the open</span><a class="btn btn-red btn-sm" href="index.html">Create account</a></div>
+
+<!-- Share your story — submissions are concierge-reviewed, never auto-published -->
+<div class="gate-modal" id="share-modal" onclick="if(event.target===this)closeShare()">
+  <div class="gate-sheet">
+    <button class="gate-close" onclick="closeShare()" aria-label="Close">
+      <svg width="20" height="20" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 5L17 17M17 5L5 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <div id="share-form">
+      <h3 class="t-h3" style="margin-bottom:6px;padding-right:32px;">Share your story</h3>
+      <p class="t-small" style="margin-bottom:16px;">Spotlights are public once published — the Labs team edits with you first.</p>
+      <label class="lbl" for="share-name" style="display:block;margin-bottom:6px;">Your name</label>
+      <input class="inp" id="share-name" type="text" placeholder="e.g. Priya Shah" style="margin-bottom:14px;">
+      <label class="lbl" for="share-story" style="display:block;margin-bottom:6px;">Your story</label>
+      <textarea class="inp" id="share-story" rows="5" placeholder="What did you practice? What broke? What changed?" style="resize:vertical;margin-bottom:16px;"></textarea>
+      <button class="btn btn-teal btn-block" onclick="submitShare()">Send my story</button>
+    </div>
+    <div id="share-done" style="display:none;text-align:center;padding:8px 0;">
+      <h3 class="t-h3" style="margin-bottom:8px;">Thank you ✓</h3>
+      <p class="t-small" style="margin-bottom:18px;">The Labs team will follow up before anything goes live.</p>
+      <button class="btn btn-ghost-teal btn-block" onclick="closeShare()">Done</button>
+    </div>
+  </div>
+</div>
+
+
+<script src="shared.js"></script>
+<script>
+/* ── Upskiller Spotlights — public, browse-first (no auth, no view-as guard).
+   SPOTLIGHTS is this file's own full set; the landing's STORIES row shows the
+   head of it and deep-links here with #s-{id}. Production: a spotlights CMS
+   collection + a story_submissions table. ── */
+const SPOTLIGHTS=[
+  {id:'hector', name:'Hector Perla', role:'Inaugural AI Cohort', tag:'builders', tagLabel:'Builder', grad:'m-teal',
+    quote:'The program gave me purpose again—connecting me with mission-driven public servants to tackle real problems. AI as an empowerment tool for people-first civic design.',
+    story:['Hector came to the Labs mid-career, carrying an ADHD diagnosis he’d only recently named and a feeling that his systems-thinking never fit a job description. The Problem Sprint changed the frame: mapping benefits-navigation dead-ends in the Triangulator, his pattern-spotting was suddenly the team’s sharpest tool.',
+      'By Showcase his pod had shipped a plain-language eligibility guide piloted at three library branches. “I stopped apologizing for how my brain works,” he says. “The Labs gave it a job.”']},
+  {id:'suzie', name:'Suzie Zhang', role:'Inaugural AI Cohort', tag:'career', tagLabel:'Career changer', grad:'m-forest',
+    quote:'I left realizing my gap is exactly where my strength lies—translating between tools, teams, and user needs. AI is about community, trust, and the human side of technology.',
+    story:['Suzie spent eight years coaching financial literacy and assumed “learning AI” meant becoming an engineer. Her Practice Journal told a different story: week after week, the entries that mattered were about translation — turning what the tools could do into what her community could trust.',
+      'She now runs AI-literacy workshops for three community organizations, built on the playbook her project team returned to the commons.']},
+  {id:'jordan', name:'Jordan Okafor', role:'Civic & Elections Cycle', tag:'builders', tagLabel:'Builder', grad:'m-navy',
+    quote:'Twelve resident interviews in, the problem stopped being abstract. We shipped a benefits guide three library branches actually use.',
+    story:['Jordan joined the cycle to “learn AI tools” and got assigned twelve resident interviews instead. The evidence-first culture stuck: his solution proposal for BenefitsBot led the pod’s ballot, and the team formed around it within a week of the tally.',
+      '“Every other program hands you a curriculum. This one handed me a problem owner, a deadline, and people who’d actually use the thing.”']},
+  {id:'elena', name:'Elena Ruiz', role:'Pod facilitator · Voting Access', tag:'mentors', tagLabel:'Mentor', grad:'m-teal',
+    quote:'I came for the AI skills and stayed for the pod. Facilitating other people’s growth turned out to be the skill I was building all along.',
+    story:['Elena registered as a volunteer, journaled her way through a cycle, and discovered the entries she reread were all about the pod — who was stuck, who was quiet, what unlocked them. When the Labs opened pod-facilitator roles (“Poderators”), her pod nominated her before she could ask.',
+      'She now facilitates Pod 2 · Voting Access, where the journal-health rhythm she once resisted is her favorite instrument.']},
+  {id:'marcus', name:'Marcus Bell', role:'Data Mentor · Two Cycles', tag:'mentors', tagLabel:'Mentor', grad:'m-forest',
+    quote:'Mentoring here isn’t office hours into the void — teams bring evidence, and you get to challenge real thinking at the exact right moment.',
+    story:['Marcus had mentored at three accelerators and burned out on all of them — “What should we do?” asked by teams who hadn’t tried anything. The Labs’ evidence-precedes-assistance rule flipped it: requests arrive with interview notes, failed experiments, and a specific place to push.',
+      '“The first request I got quoted their journal entries at me. I cleared my calendar.”']},
+  {id:'aisha', name:'Aisha Karim', role:'Design Mentor', tag:'career', tagLabel:'Career changer', grad:'m-navy',
+    quote:'My case study became a playbook, the playbook became a workshop, and the workshop hired me. Build in the open — the commons pays you back.',
+    story:['Aisha’s team published their case study under CC BY 4.0 like every Labs project. A civic-tech nonprofit found the playbook, ran the workshop, and then hired her to run it properly — her first design role after a decade in operations.',
+      '“A portfolio says ‘trust me.’ A public case study with peer sign-off says ‘check for yourself.’”']},
+  {id:'rosa', name:'Rosa Nguyen', role:'Civic & Elections Cycle', tag:'builders', tagLabel:'Builder', grad:'m-teal',
+    quote:'The kickoff assignment was two minutes of observations. Somehow that snowballed into the most useful thing I’ve ever built.',
+    story:['Rosa’s first contribution was a field-survey entry about first-time voters — no account, two minutes, done. Those observations surfaced in her pod’s Triangulator session, became a problem statement, then a ballot-winning proposal she ended up registering for.',
+      '“I watched my own observation travel the whole pipeline. That’s when I understood what ‘build in the open’ actually means.”']}
+];
+const STORY_SUBMISSIONS=[];
+
+/* filter chips */
+let spotFilter='all';
+const SPOT_CATS=[['all','All stories'],['builders','Builders'],['mentors','Mentors'],['career','Career changers']];
+function renderChips(){
+  document.getElementById('spot-chips').innerHTML=SPOT_CATS.map(([v,l])=>'<button class="chip'+(spotFilter===v?' active':'')+'" onclick="spotFilter=\''+v+'\';renderSpotlights()">'+l+'</button>').join('');
+}
+function toggleSpot(el,e){
+  if(e&&(e.target.closest('a,button'))) return;
+  el.classList.toggle('expanded');
+}
+function renderSpotlights(){
+  renderChips();
+  const list=SPOTLIGHTS.filter(s=>spotFilter==='all'||s.tag===spotFilter);
+  document.getElementById('spot-grid').innerHTML=list.map(s=>'<div class="card tappable" id="s-'+s.id+'" onclick="toggleSpot(this,event)">'
+    +'<div class="spot-media '+(s.grad||'m-teal')+'" aria-hidden="true">'+ORB+'</div>'
+    +'<div class="card-body">'
+    +'<span class="spot-tag" style="margin-bottom:12px;">'+escHTML(s.tagLabel)+'</span>'
+    +'<p class="t-body" style="margin:12px 0 14px;">“'+escHTML(s.quote)+'”</p>'
+    +'<div class="t-h4">'+escHTML(s.name)+'</div>'
+    +'<div class="lbl" style="margin-top:4px;">'+escHTML(s.role)+'</div>'
+    +'<div class="spot-story">'+s.story.map(p=>'<p class="t-body" style="margin-bottom:12px;">'+escHTML(p)+'</p>').join('')+'</div>'
+    +'<span class="spot-more">Read the full story <span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></span>'
+    +'</div></div>').join('');
+  enhanceTappables();
+}
+
+/* share your story — concierge-reviewed submissions, never auto-published */
+function openShare(){ document.getElementById('share-form').style.display='block'; document.getElementById('share-done').style.display='none'; document.getElementById('share-modal').classList.add('open'); document.getElementById('share-name').focus(); }
+function closeShare(){ document.getElementById('share-modal').classList.remove('open'); }
+function submitShare(){
+  const name=document.getElementById('share-name').value.trim();
+  const story=document.getElementById('share-story').value.trim();
+  if(!name){ document.getElementById('share-name').focus(); return; }
+  if(!story){ document.getElementById('share-story').focus(); return; }
+  STORY_SUBMISSIONS.push({name:name, story:story, at:Date.now()});
+  document.getElementById('share-form').style.display='none';
+  document.getElementById('share-done').style.display='block';
+}
+
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeShare(); });
+
+/* boot — render, then honor #s-{id} deep links from the landing row */
+renderSpotlights();
+if(location.hash&&location.hash.startsWith('#s-')){
+  const el=document.getElementById(location.hash.slice(1));
+  if(el){ el.classList.add('expanded'); el.scrollIntoView({block:'center'}); }
+}
+</script>
+<script src="chrome.js"></script>
+<script>
+LabsChrome.mountPublicNav({rel:''});
+document.getElementById('foot-slot').outerHTML=LabsChrome.footerHTML('');
+</script>
+<script src="events/data.js"></script>
+<script src="library/data.js"></script>
+<script src="labs/data.js"></script>
+<script src="cycles/data.js"></script>
+<script src="projects/data.js"></script>
+<script src="pods/data.js"></script>
+<script src="people/data.js"></script>
+<script>window.SEARCH_REL="";</script>
+<script src="search.js"></script>
+</body>
+</html>

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+<title>The Upskilling Labs</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="font.css">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="system.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<div id="screens">
+
+  <!-- ════════ LANDING (public hybrid home) ════════ -->
+  <div id="view-landing" class="view active light s-paper">
+    <!-- The public nav is injected here by chrome.js (mountPublicNav at boot —
+         overHero variant: fixed, gradient fade, hide-on-scroll morph). Same single
+         source the generator bakes into every generated page. -->
+    <div id="landing-nav-slot"></div>
+
+    <div class="hero-band s-cover grain on-dark">
+      <div class="hero-scrim" aria-hidden="true"></div>
+      <div class="hero-photo" aria-hidden="true"></div>
+      <div class="hero-tint" aria-hidden="true"></div>
+      <div class="hero-inner">
+        <h1 class="t-display">Find your people.<br>Build your edge.</h1>
+        <div class="hero-cta">
+          <p class="t-lede" style="margin-bottom:24px;">The Labs isn’t a class you sit through. It’s where you practice becoming the person you want to be — on real problems, with people who notice.</p>
+          <button class="btn btn-red btn-lg hero-cta-out" onclick="startCreateAccount()">Join The Labs</button>
+          <button class="btn btn-ghost btn-lg hero-login hero-cta-out" onclick="signinReturning()">Log in</button>
+          <button class="btn btn-teal btn-lg hero-cta-in" style="display:none;" onclick="goApp('dashboard')">Go to your dashboard</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="vscroll">
+      <!-- Upskiller stories — first section under the hero. One fit-to-width row,
+           always ending in the CTA card into stories.html (Upskiller Spotlights).
+           Cards render from STORIES via renderLandingStories(). -->
+      <section class="section s-white" id="sec-stories" style="padding-top:calc(56px + 3*var(--r));">
+        <div class="container">
+          <div class="section-head"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">Upskiller spotlights</div><h2 class="t-h2">Stories from the community</h2></div></div>
+          <div class="story-row" id="story-row"></div>
+        </div>
+      </section>
+
+      <!-- Cycles -->
+      <section class="section s-white" id="sec-cycles"><div class="container">
+        <div class="section-head"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">Build Cycles · 4 a year</div><h2 class="t-h2">Join a cohort, ship something real</h2></div><a class="see" href="cycles/">How cycles work →</a></div>
+        <div class="cycle-banner s-cover grain on-dark">
+          <div class="m-orb"><svg viewBox="0 0 240 240" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:block;width:100%;height:100%">
+  <defs>
+    <radialGradient id="oc" cx="38%" cy="35%" r="58%"><stop offset="0%" stop-color="#0094A0"/><stop offset="62%" stop-color="rgba(0,148,160,0)"/></radialGradient>
+    <radialGradient id="or" cx="62%" cy="78%" r="65%"><stop offset="60%" stop-color="rgba(225,29,42,0)"/><stop offset="100%" stop-color="#E11D2A"/></radialGradient>
+    <linearGradient id="og" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#00D3E4"/><stop offset="60%" stop-color="#0094A0"/><stop offset="100%" stop-color="#007882"/></linearGradient>
+  </defs>
+  <circle cx="120" cy="120" r="116" fill="url(#oc)"/>
+  <circle cx="120" cy="120" r="116" fill="url(#or)"/>
+  <g transform="translate(20,40) scale(0.142)"><path d="M 0 900.84 C 532.341 651.368 841.069 454.81 1407.215 0 C 1190.699 365.98 1060.371 566.788 776.503 900.84 L 950.588 496.405 C 539.219 733.009 347.248 789.767 0 900.84 Z" fill="url(#og)"/></g>
+</svg></div>
+          <div class="cb-body">
+            <span class="cb-status">Registration Open Now</span>
+            <div class="lbl lbl-teal" style="margin:14px 0 6px;">Summer 2026 · Washington, DC</div>
+            <h3 class="t-h2">Civic &amp; Elections Cycle</h3>
+            <p class="t-body" style="margin-top:8px;max-width:52ch;">Kicks off July 14, 2026 · a 13-week cohort shipping a real civic project.</p>
+            <p class="t-small" style="margin-top:6px;color:var(--od2);max-width:52ch;">An Open Cycle — the projects are open source, free for anyone to use and build on.</p>
+          </div>
+          <div class="cb-cta">
+            <button class="btn btn-red btn-lg" onclick="gateCreateAccount('the Civic &amp; Elections Cycle',event)">Join this cycle</button>
+          </div>
+        </div>
+        <!-- Public accountability strip: what this cycle is investigating, with the
+             community attribution visible BEFORE any account exists (UX_FINDINGS F3). -->
+        <div id="landing-sits" style="margin-top:16px;"></div>
+        <div class="lcard" style="margin-top:16px;padding:20px 24px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:240px;"><div class="lbl lbl-teal" style="margin-bottom:6px;">The Kickoff assignment · open to everyone</div><div class="t-h4" style="margin-bottom:4px;">Seen something about civic life worth noting?</div><p class="t-small">Add raw observations to the cycle's problem map — takes two minutes, no account needed.</p></div>
+          <button class="btn btn-teal" onclick="startFlow('survey', ()=>showView('landing'))">Add your observations</button>
+        </div>
+      </div></section>
+
+
+
+      <!-- Workshops -->
+      <section class="section s-white" id="sec-workshops"><div class="container">
+        <div class="section-head"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">Workshops &amp; sessions · weekly</div><h2 class="t-h2">Drop into a session</h2></div><a class="see" href="events/index.html">All events →</a></div>
+        <!-- Rendered from EVENTS (events/data.js) — each card links to its real events/{slug}/ page -->
+        <div class="cards dense" id="landing-events"></div>
+      </div></section>
+
+      <!-- Learning Library -->
+      <section class="section s-white" id="sec-library"><div class="container">
+        <div class="section-head"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">Learning Library · on-demand</div><h2 class="t-h2">Learn at your own pace</h2></div><a class="see" href="library/index.html">Full library →</a></div>
+        <!-- Rendered from RESOURCES (library/data.js) — each card links to its real library/{slug}/ page -->
+        <div class="cards dense" id="landing-library"></div>
+      </div></section>
+
+      <!-- Local labs -->
+      <section class="section s-white" id="sec-labs"><div class="container">
+        <div class="section-head"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">Local labs</div><h2 class="t-h2">Find your city</h2></div><a class="see" href="labs/index.html">All cities →</a></div>
+        <!-- Rendered from METROS (labs/data.js) — each card links to its real labs/{slug}/ page -->
+        <div class="cards" id="landing-labs"></div>
+        <!-- Public metro search — city first, account second: browse and pick your city
+             free; the account ask comes only when a name goes on a list. -->
+        <div style="margin-top:32px;">
+          <div class="t-h4" style="margin-bottom:4px;">Not one of these?</div>
+          <p class="t-small" style="margin-bottom:14px;">Search your city — or be the first name on its list.</p>
+          <div class="metro-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input id="landing-metro-input" type="search" placeholder="Search any city" aria-label="Search cities" autocomplete="off"
+                   oninput="metroQuery=this.value;renderMetroResults()"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();metroSearchEnter();}">
+          </div>
+          <p class="t-small" id="landing-metro-count" aria-live="polite" style="color:var(--meta);margin:12px 0 16px;"></p>
+          <div class="cards" id="landing-metro-results"></div>
+        </div>
+      </div></section>
+
+      <!-- Open-source footer -->
+      <footer class="osfooter grain">
+        <div class="osfooter-inner">
+          <div class="foot-top">
+            <div class="foot-brand">
+              <span class="logo-link" onclick="scrollTop()"><img src="assets/logo-lockup-light.png" alt="The Upskilling Labs" style="height:56px;width:auto;display:block;"></span>
+              <p class="t-body">A commons for upskilling — learn by doing, in the open. Projects, playbooks, and lessons, built like open source.</p>
+              <a class="btn btn-ghost-teal btn-sm" href="https://www.every.org/theupskillinglabs" target="_blank" rel="noopener">Support The Labs</a>
+            </div>
+            <div class="foot-col">
+              <div class="lbl">Explore</div>
+              <a class="foot-link" onclick="scrollToSection('sec-cycles')">Build Cycles</a>
+              <a class="foot-link" onclick="scrollToSection('sec-workshops')">Workshops</a>
+              <a class="foot-link" onclick="scrollToSection('sec-library')">Learning Library</a>
+              <a class="foot-link" onclick="scrollToSection('sec-labs')">Local labs</a>
+            </div>
+            <div class="foot-col">
+              <div class="lbl">Community</div>
+              <a class="foot-link" href="about/">About</a>
+              <a class="foot-link" href="stories.html">Member stories</a>
+              <a class="foot-link" onclick="startCreateAccount()">Become a member</a>
+              <a class="foot-link" onclick="signinReturning()">Log in</a>
+            </div>
+            <div class="foot-col">
+              <div class="lbl">Open source</div>
+              <a class="foot-link" href="about/">How it works</a>
+              <a class="foot-link" onclick="showView('stub')">Content license</a>
+              <a class="foot-link" onclick="showView('stub')">Built in the open</a>
+              <a class="foot-link" onclick="startCreateAccount()">Join The Labs</a>
+            </div>
+          </div>
+          <div class="foot-partners">
+            <span class="lbl">In partnership with</span>
+            <img class="p-levy" src="assets/levy-strategic-design-white.png" alt="Levy Strategic Design">
+            <img class="p-dcpl" src="assets/dcpl-knockout-logo.png" alt="DC Public Library">
+            <img class="p-superbloom" src="assets/superbloom-white.png" alt="Superbloom Design">
+          </div>
+          <p class="foot-fineprint">The Upskilling Labs, Inc. operates as a fiscally sponsored project of Superbloom Design, a registered 501(c)(3) nonprofit organization based in the United States. Donations are tax-deductible to the extent permitted by law.</p>
+          <div class="foot-bottom">
+            <span>© 2026 The Upskilling Labs, Inc.</span>
+            <span class="foot-legal"><a onclick="showView('stub')">Privacy</a><a onclick="showView('stub')">Terms</a><a onclick="showView('stub')">Accessibility</a></span>
+            <span>MIT code · CC BY 4.0 content · Built in the open</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ════════ ABOUT ════════ -->
+  <!-- The About page is a real generated page now: about/ (tools/generate.js aboutPage) -->
+
+  <!-- ════════ GOOGLE AUTH ════════ -->
+  <div id="view-google-auth" class="view light onboard s-paper">
+    <div class="sheet">
+      <div class="topbar"><button class="icon-btn" aria-label="Back" onclick="showView('landing')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button></div>
+      <div class="vscroll pad">
+        <div class="lbl lbl-teal" style="margin-bottom:16px;">Create account</div>
+        <div id="gate-ctx" class="open-tag" style="display:none;margin-bottom:14px;"></div>
+        <h2 class="t-h1" style="margin-bottom:16px;">Sign in with Google</h2>
+        <p class="t-lede" style="margin-bottom:32px;">One account you already have. Free, familiar, nothing new to remember.</p>
+        <div style="margin-bottom:8px;">
+          <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--rule);"><div style="width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:7px;"></div><span class="t-body">Free for everyone — no paid account needed</span></div>
+          <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--rule);"><div style="width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:7px;"></div><span class="t-body">Your profile is visible to Labs members — you control what you show</span></div>
+          <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 0;"><div style="width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:7px;"></div><span class="t-body">Easy access to shared tools — Docs, Calendar, Slack</span></div>
+        </div>
+      </div>
+      <div class="actionbar light-bar">
+        <button class="google-btn" onclick="continueWithGoogle()"><svg style="width:20px;height:20px;flex-shrink:0;" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.79-.07-1.54-.19-2.27h-11.3v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/><path fill="#34A853" d="M12.255 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96h-3.98v3.09C3.515 21.3 7.565 24 12.255 24z"/><path fill="#FBBC05" d="M5.525 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62h-3.98a11.86 11.86 0 0 0 0 10.76l3.98-3.09z"/><path fill="#EA4335" d="M12.255 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C18.205 1.19 15.495 0 12.255 0c-4.69 0-8.74 2.7-10.71 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"/></svg>Continue with Google</button>
+        <p class="t-small" style="text-align:center;">We only access your name and email.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ ROLE INTENT ════════ -->
+  <div id="view-role-intent" class="view light onboard s-paper">
+    <div class="sheet">
+      <div class="topbar"><button class="icon-btn" aria-label="Back" onclick="showView('google-auth')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button></div>
+      <div class="vscroll pad">
+        <div class="lbl lbl-teal" style="margin-bottom:16px;">Get started</div>
+        <h2 class="t-h1" style="margin-bottom:14px;">How do you want to take part?</h2>
+        <p class="t-lede" style="margin-bottom:28px;">Pick at least one — you can change this any time.</p>
+        <div style="display:flex;flex-direction:column;gap:10px;" id="role-options">
+          <label class="opt-card"><input type="checkbox" value="cycle" onchange="updateRoleBtn()"><span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><div style="flex:1;"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;"><span class="t-h4">Join a Cycle</span><span class="lbl lbl-teal" style="font-size:10px;">Heart of the Labs</span></div><p class="t-small">Join a pod, take on a real problem, and ship something you’re proud of. Thirteen weeks.</p></div></label>
+          <label class="opt-card"><input type="checkbox" value="events" onchange="updateRoleBtn()"><span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><div style="flex:1;"><div class="t-h4" style="margin-bottom:4px;">Attend events &amp; workshops</div><p class="t-small">Hands-on sessions and community events. Come when it suits you.</p></div></label>
+          <label class="opt-card"><input type="checkbox" value="volunteer" onchange="updateRoleBtn()"><span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><div style="flex:1;"><div class="t-h4" style="margin-bottom:4px;">Volunteer</div><p class="t-small">Help run events, or help behind the scenes. The Labs runs on people who pitch in.</p></div></label>
+          <label class="opt-card"><input type="checkbox" value="mentor" onchange="updateRoleBtn()"><span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><div style="flex:1;"><div class="t-h4" style="margin-bottom:4px;">Mentor</div><p class="t-small">Share what you know — office hours, workshops, and the occasional rescue.</p></div></label>
+        </div>
+      </div>
+      <div class="actionbar light-bar"><button class="btn btn-red btn-block" id="role-continue-btn" disabled onclick="submitRoleIntent()">Continue</button></div>
+    </div>
+  </div>
+
+  <!-- ════════ FLOW ════════ -->
+  <!-- The ceremony views (flow engine, mentor explainer, survey share, the
+       Triangulator, the cycle threshold/signature/ignition, the project canvas)
+       and the shared modals are injected by app.js injectCeremonies() — one
+       source for index.html and every app page. -->
+  <!-- The signed-in app lives on its own pages now (owner decision — each
+       destination is a real page): dashboard/ my-cycle/ learning/ directory/ me/.
+       index.html hosts the public landing + the onboarding funnel + the injected
+       ceremony layer; panel deep links (?view=) redirect to the real pages. -->
+
+</div>
+
+<!-- Public event RSVP — free, open to everyone, first come first served. Email only, no account. -->
+<script src="shared.js"></script>
+<script src="chrome.js"></script>
+<!-- Content data (the mini-CMS): each directory owns its content; tools/generate.js renders its pages -->
+<script src="events/data.js"></script>
+<script src="library/data.js"></script>
+<script src="labs/data.js"></script>
+<script src="cycles/data.js"></script>
+<script src="pods/data.js"></script>
+<script src="projects/data.js"></script>
+<script src="people/data.js"></script>
+<script src="app.js"></script>
+<script>
+/* The runtime lives in app.js (shared with the app pages) — this script is
+   index.html's own boot: mount the chrome, restore state, handle params. */
+document.addEventListener('DOMContentLoaded',()=>{
+  injectCeremonies(); // ceremony views + shared modals (single source in app.js)
+  LabsChrome.mountPublicNav({rel:'', into:'#landing-nav-slot', overHero:true, onLogin:signinReturning, onJoin:startCreateAccount, onHome:()=>goApp('dashboard')});
+  restoreSession(); renderLandingStories(); renderLandingSituations(); renderLandingEvents(); renderLandingLibrary(); renderLandingLabs(); initEventCats(); applyCycleState(); buildWeekRail(); renderActivity(); renderLearningLog(); initHeroScroll(); enhanceTappables();
+  const qs=new URLSearchParams(location.search);
+  // Shared survey links (?survey=...) deep-link straight into the fill flow — no account needed.
+  if(qs.get('survey')){ startFlow('survey', ()=>showView('landing')); }
+  // ?join={slug} — a generated labs/{slug}/ page handing off a waitlist join. The city
+  // was committed on the lab page (never ask twice): signed-in joins immediately (a
+  // modal, so it completes even under the log-gate); anonymous routes through the
+  // account gate and consumePendingWaitlist finishes after signup.
+  const joinSlug=qs.get('join');
+  if(joinSlug && METROS[joinSlug]){
+    history.replaceState(null,'',location.pathname); // one-shot: a reload must not re-fire
+    if(userState.signedIn){ userState.waitlists.includes(joinSlug)?showWaitlistDone(joinSlug):confirmWaitlistJoin(joinSlug); }
+    else { pendingWaitlist=joinSlug; gateCreateAccount('the '+METROS[joinSlug].name+' waitlist'); }
+  }
+  // ?go=dashboard — the generated pages' "Your dashboard" nav link.
+  if(qs.get('go')==='dashboard'&&userState.signedIn){ history.replaceState(null,'',location.pathname); goApp('dashboard'); }
+  // ?register=cycle — the public cycles/ page handing off registration (one-shot).
+  if(qs.get('register')==='cycle'){
+    history.replaceState(null,'',location.pathname);
+    if(userState.signedIn){ location.replace('my-cycle/?register=1'); return; }
+    else { gateCreateAccount('the Civic & Elections Cycle'); }
+  }
+  // ?login=1 / ?signup=1 — the public nav's Log in / Join from every generated page.
+  if(qs.get('login')==='1'){ history.replaceState(null,'',location.pathname); userState.signedIn?goApp('dashboard'):signinReturning(); }
+  if(qs.get('signup')==='1'){ history.replaceState(null,'',location.pathname); userState.signedIn?goApp('dashboard'):startCreateAccount(); }
+  // ?view={panel} — panel deep links (production: the authed routes; see docs/HANDOFF.md).
+  const viewParam=qs.get('view');
+  if(viewParam&&APP_PANELS.includes(viewParam)&&userState.signedIn){ goApp(viewParam); }
+  else if(viewParam){ history.replaceState(null,'',location.pathname); }
+});
+</script>
+<script src="search.js"></script>
+
+</body>
+</html>

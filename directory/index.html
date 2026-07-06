@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Directory · The Upskilling Labs</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../font.css">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../system.css">
+<link rel="stylesheet" href="../app.css">
+</head>
+<body>
+<!-- HAND-WRITTEN app route shell — production: /directory (see docs/HANDOFF.md §2).
+     Directory: the member community, updates, The Work, and the city labs.
+     The signed-in nav, tab bar, ceremony views, and shared modals are injected at
+     boot by chrome.js + app.js (single source); this file owns only its panel
+     markup. Auth-guarded: signed-out visits bounce to ../index.html; the weekly
+     Learning Log gate bounces every page but Home to ../dashboard/. -->
+<div id="screens">
+  <div id="app-shell" class="view active light s-paper">
+    <div class="vscroll" id="app-scroll">
+      <div id="panel-directory" class="panel active">
+        <div class="container" style="padding-top:40px;padding-bottom:48px;">
+          <div class="section-head"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">Directory</div><h2 class="t-h1">The people, the places, and the work</h2></div></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;" aria-label="Jump to section">
+            <button class="chip" onclick="scrollToSection('sec-people')">Community</button>
+            <button class="chip" onclick="scrollToSection('sec-updates')">Updates</button>
+            <button class="chip" onclick="scrollToSection('sec-work')">The Work</button>
+            <button class="chip" onclick="scrollToSection('sec-cities')">Cities</button>
+          </div>
+          <div class="section-head" id="sec-people" style="margin-top:32px;"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">Community · upskillers &amp; mentors</div><h2 class="t-h2">Meet the community</h2></div></div>
+          <div id="disc-people-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;"></div>
+          <div class="cards" id="disc-people"></div>
+          <div class="section-head" id="sec-updates" style="margin-top:40px;"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">Community updates</div><h2 class="t-h2">What people are shipping</h2></div></div>
+          <div id="disc-updates-chips" style="display:flex;gap:8px;margin-bottom:16px;"></div>
+          <div class="cards two" id="disc-updates"></div>
+          <div class="section-head" id="sec-work" style="margin-top:40px;"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">The Work · public by artifact</div><h2 class="t-h2">What The Labs has shipped</h2></div></div>
+          <div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+            <a class="lcard tappable" href="../projects/index.html" style="padding:24px;display:block;"><div class="lbl lbl-teal" style="margin-bottom:6px;">Projects</div><div class="t-h4" style="margin-bottom:4px;">Shipped case studies</div><p class="t-small">Peer-approved projects, with the frame, the build, and the outcomes.</p></a>
+            <a class="lcard tappable" href="../pods/index.html" style="padding:24px;display:block;"><div class="lbl lbl-teal" style="margin-bottom:6px;">Pods</div><div class="t-h4" style="margin-bottom:4px;">The teams behind them</div><p class="t-small">Who built together, and what each pod shipped.</p></a>
+            <a class="lcard tappable" href="../people/index.html" style="padding:24px;display:block;"><div class="lbl lbl-teal" style="margin-bottom:6px;">People</div><div class="t-h4" style="margin-bottom:4px;">Public portfolios</div><p class="t-small">Members who've opted in to a public page.</p></a>
+          </div>
+          <div class="section-head" id="sec-cities" style="margin-top:40px;"><div><div class="lbl lbl-teal" style="margin-bottom:8px;">Local labs · library-hosted</div><h2 class="t-h2">Find your city</h2></div><a class="see" href="../labs/index.html">Public page →</a></div>
+          <div class="metro-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input id="metro-search-input" type="search" placeholder="Search any city" aria-label="Search cities" autocomplete="off"
+                   oninput="metroQuery=this.value;renderMetroResults()"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();metroSearchEnter();}">
+          </div>
+          <p class="t-small" id="metro-count" aria-live="polite" style="color:var(--meta);margin:12px 0 16px;"></p>
+          <div class="cards" id="metro-results"></div>
+        </div>
+      </div>
+      <!-- Visitor-mode member profiles render here (?u={id} — production /u/[handle]);
+           the panel markup is mounted from app.js's PROFILE_PANEL_HTML at boot. -->
+      <div id="profile-slot"></div>
+      <div id="foot-slot"></div>
+    </div>
+  </div>
+</div>
+<script>window.LABS_REL='../'; window.SEARCH_REL='../';</script>
+<script src="../shared.js"></script>
+<script src="../chrome.js"></script>
+<script src="../events/data.js"></script>
+<script src="../library/data.js"></script>
+<script src="../labs/data.js"></script>
+<script src="../cycles/data.js"></script>
+<script src="../pods/data.js"></script>
+<script src="../projects/data.js"></script>
+<script src="../people/data.js"></script>
+<script src="../app.js"></script>
+<script>App.boot('directory');</script>
+<script src="../search.js"></script>
+</body>
+</html>
