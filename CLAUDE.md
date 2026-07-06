@@ -50,6 +50,8 @@ It is **mobile-first and fully responsive**: a phone-shaped experience on small 
 | `app.css` | The SPA-era vocabulary extracted from index.html's `<style>`, shared by index + the five app pages (app shell, panels, flows, ceremonies, modals, landing sections). Layered after system.css |
 | `triangulator.html` | The Triangulator — a full problem-framing tool (Kees Dorst Frame Creation), reskinned to this design system, embedded via iframe from `index.html`. Canonical upstream: the `triangles` repo; this copy is the reskinned/integrated adaptation. |
 | `stories.html` | **Upskiller Spotlights** — public story page (tinder-swipe-stories model): filterable spotlight grid, expandable stories, `#s-{id}` deep links, "Share your story" modal → `STORY_SUBMISSIONS` |
+| `agreements.js` | **GENERATED** by `tools/build-agreements.js` from `docs/agreements/*.md` — `window.AGREEMENTS` (participation / guidelines / mentor), each `{title, version, html}`. Loaded before app.js on index + the five app pages. Signup scroll-gates participation + guidelines (one doc per screen, separate assent); the mentor flow scroll-gates the mentor agreement before publish. Acceptances record `{doc, version, at}` in `userState.agreements`; a version bump re-presents the doc |
+| `tools/build-agreements.js` | The agreements twin of generate.js (zero-dep) — edit a doc in `docs/agreements/`, rerun, commit both. Version strings live here |
 | `font.css` | The single embedded Geologica `@font-face` (base64) — every HTML file links it; **no inline `@font-face` anywhere** |
 | `tokens.css` | Brand primitives (palette, `--r`, shadows, `--grain`, layout rhythm `--pad`/`--maxw`) — the single source of truth; per-file `:root`s hold only file-specific vocabulary |
 | `shared.js` | Stateless helpers (`escHTML relDate avatarSm enhanceTappables ORB GRAD`, view-as persona contract) loaded before each file's inline script — no routing, no per-file state. Also injects the **orb gradient defs sprite** as body's first child (never `display:none`) — the single renderable source for `url(#oc/#or/#og)`; without it, orbs paint as flat slabs on any screen whose first defs copy is hidden |
@@ -326,12 +328,24 @@ Learning Log shares are the primary source of member updates.
 
 ### Key user flows
 
-- **Create account:** Landing → `view-google-auth` → `view-role-intent` → signup flow —
-  **5 screens** (email · "Tell us who you are" `fields` step with first+last+zip on one
-  screen · describes-you · hearAbout with the referral input inline via `step.followUp` ·
-  consent). The lab is assigned silently from zip; there is no visibility step — profiles
-  are members-only (`profileVisibility='labs'`, public tier deferred). Then role branches →
-  gate-return (if the funnel was entered from a gated card) or dashboard.
+- **Create account (2026-07 redesign — see docs/ONBOARDING_REDESIGN.md):** Landing →
+  `view-google-auth` (welcome register, observer-friendly) → `view-role-intent` (square
+  multi-select) → signup flow — **11 screens**: email · first+last+zip · work status ·
+  sector (+"Something else" followUp) · years experience · education · LinkedIn (optional)
+  · hearAbout (+referral followUp) · **Participation Agreement** (scroll-gated, own agree)
+  · **Volunteer Guidelines** (scroll-gated, own agree) · contact opt-in (OPTIONAL check) —
+  final button "Become an Upskiller". Demographic choices all carry "Prefer not to answer".
+  Lab still assigned silently from zip; intake lands in `userState.answers`, acceptances in
+  `userState.agreements` `{doc,version,at}`, opt-in in `contactOptIn`. **Routing:**
+  gate-return and pending-waitlist keep priority; otherwise EVERYONE exits through the cycle
+  pitch — threshold `ts0` ("This season: Civics & Elections") → ts1 → ts2 — and onboarding
+  closes on `view-thankyou` (summary rows + the simulated welcome-summary email,
+  `userState.emails`) whether they register or tap Not now. Role flows never chain off
+  signup; picked-but-unfinished mentor/volunteer surface as dashboard todos. **Returning
+  members:** Join with an existing session → `view-welcome-back` (what's on file) → change
+  roles (only NEW role flows run) or edit details (prefilled; accepted agreement versions
+  skip via `step.when`). Admin → Signups reviews it all (live row + metrics + grant/revoke
+  admin).
 - **Survey → Triangulator:** survey flow (`FLOWS('survey')`, loops via "add another") →
   observations append to `localStorage['olos.surveyPool.v1']` (seeded from `SURVEY_SEED`, the
   Civic & Elections CSV) → `view-survey-share` (copy `?survey=` link; the link deep-links

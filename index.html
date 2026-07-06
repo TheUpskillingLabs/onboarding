@@ -174,19 +174,19 @@
     <div class="sheet">
       <div class="topbar"><button class="icon-btn" aria-label="Back" onclick="showView('landing')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button></div>
       <div class="vscroll pad">
-        <div class="lbl lbl-teal" style="margin-bottom:16px;">Create account</div>
+        <div class="lbl lbl-teal" style="margin-bottom:16px;">Join The Labs</div>
         <div id="gate-ctx" class="open-tag" style="display:none;margin-bottom:14px;"></div>
-        <h2 class="t-h1" style="margin-bottom:16px;">Sign in with Google</h2>
-        <p class="t-lede" style="margin-bottom:32px;">One account you already have. Free, familiar, nothing new to remember.</p>
+        <h2 class="t-h1" style="margin-bottom:16px;">You’re in the right place.</h2>
+        <p class="t-lede" style="margin-bottom:32px;">Welcome to The Labs. An account is all you need to start — look around, follow the work, show up to an event. Go deeper whenever you’re ready. You sign in with Google, so there’s nothing new to create and no password to forget.</p>
         <div style="margin-bottom:8px;">
-          <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--rule);"><div style="width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:7px;"></div><span class="t-body">Free for everyone — no paid account needed</span></div>
-          <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--rule);"><div style="width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:7px;"></div><span class="t-body">Your profile is visible to Labs members — you control what you show</span></div>
-          <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 0;"><div style="width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:7px;"></div><span class="t-body">Easy access to shared tools — Docs, Calendar, Slack</span></div>
+          <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--rule);"><div style="width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:7px;"></div><span class="t-body">Free, always — any Google account works</span></div>
+          <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--rule);"><div style="width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:7px;"></div><span class="t-body">Labs members can find you — you decide what shows</span></div>
+          <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 0;"><div style="width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:7px;"></div><span class="t-body">One account for everything — events, the library, the community</span></div>
         </div>
       </div>
       <div class="actionbar light-bar">
         <button class="google-btn" onclick="continueWithGoogle()"><svg style="width:20px;height:20px;flex-shrink:0;" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.79-.07-1.54-.19-2.27h-11.3v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/><path fill="#34A853" d="M12.255 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96h-3.98v3.09C3.515 21.3 7.565 24 12.255 24z"/><path fill="#FBBC05" d="M5.525 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62h-3.98a11.86 11.86 0 0 0 0 10.76l3.98-3.09z"/><path fill="#EA4335" d="M12.255 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C18.205 1.19 15.495 0 12.255 0c-4.69 0-8.74 2.7-10.71 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"/></svg>Continue with Google</button>
-        <p class="t-small" style="text-align:center;">We only access your name and email.</p>
+        <p class="t-small" style="text-align:center;">We only see your name and email. That’s it.</p>
       </div>
     </div>
   </div>
@@ -233,6 +233,7 @@
 <script src="pods/data.js"></script>
 <script src="projects/data.js"></script>
 <script src="people/data.js"></script>
+<script src="agreements.js"></script>
 <script src="app.js"></script>
 <script>
 /* The runtime lives in app.js (shared with the app pages) — this script is

@@ -118,6 +118,7 @@ button,input,select,textarea { font-family:inherit; }
     <button class="chip" data-panel="cycle" onclick="showAdminPanel('cycle')">Cycle control</button>
     <button class="chip" data-panel="votes" onclick="showAdminPanel('votes')">Vote progress</button>
     <button class="chip" data-panel="invites" onclick="showAdminPanel('invites')">Invitations</button>
+    <button class="chip" data-panel="signups" onclick="showAdminPanel('signups')">Signups</button>
     <button class="chip" data-panel="people" onclick="showAdminPanel('people')">Participants</button>
     <button class="chip" data-panel="entities" onclick="showAdminPanel('entities')">Entity Explorer</button>
   </div>
@@ -189,6 +190,24 @@ button,input,select,textarea { font-family:inherit; }
   </div>
 
   <!-- ═══ PARTICIPANTS ═══ -->
+  <!-- ═══ SIGNUPS — onboarding review: metrics, intake answers, agreements, admin roles.
+       Reads the live signup from olos.userState.v1/olos.session.v1 (display-only) on top
+       of the mock roster; production: participants + agreement_acceptances queries. ═══ -->
+  <div id="apanel-signups" class="apanel">
+    <div class="section-head"><div><div class="lbl lbl-teal" style="margin-bottom:6px;">Signups</div><h2 class="t-h2">Who’s joining, and how</h2></div></div>
+    <div id="signup-metrics" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;"></div>
+    <div class="lcard tbl-wrap" style="padding:6px 12px 2px;margin-bottom:24px;">
+      <table class="tbl" aria-label="Signups">
+        <thead><tr><th>Name</th><th>Joined</th><th>Roles</th><th>Sector</th><th>Experience</th><th>Referral</th><th>Docs</th><th>Contact</th></tr></thead>
+        <tbody id="signup-rows"></tbody>
+      </table>
+    </div>
+    <p class="t-small" style="margin-bottom:28px;">Click a row for the full intake — answers, agreement versions, and the welcome email. The <b>You (live)</b> row is this browser’s real signup.</p>
+    <div class="section-head" style="border-bottom-width:1px;"><div><div class="lbl lbl-teal" style="margin-bottom:6px;">Admin users</div><h3 class="t-h3">Who holds the keys</h3></div></div>
+    <div class="lcard" style="padding:18px 24px;margin-bottom:12px;" id="admin-users"></div>
+    <p class="t-small">Granting Admin is deliberate and rare — it’s full operational access. Poderator grants live in the Participants permissions editor. In-memory in this prototype; production writes <code style="font-size:12px;">participant_roles</code>.</p>
+  </div>
+
   <div id="apanel-people" class="apanel">
     <div class="section-head"><div><div class="lbl lbl-teal" style="margin-bottom:6px;">Participants</div><h2 class="t-h2">Everyone in the cycle</h2></div></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;" id="people-chips"></div>
@@ -234,6 +253,18 @@ button,input,select,textarea { font-family:inherit; }
       <p class="t-small" style="margin-bottom:18px;">Got it — along with the screen you were on. Thanks for making this better.</p>
       <button class="btn btn-ghost-teal btn-block" onclick="closeFeedback()">Done</button>
     </div>
+  </div>
+</div>
+
+<!-- Signup detail — full intake + agreements + the simulated welcome email -->
+<div class="gate-modal" id="sg-modal" onclick="if(event.target===this)closeSignup()">
+  <div class="gate-sheet">
+    <button class="gate-close" onclick="closeSignup()" aria-label="Close">
+      <svg width="20" height="20" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 5L17 17M17 5L5 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <h3 class="t-h3" id="sg-title" style="margin-bottom:4px;padding-right:32px;">Signup</h3>
+    <p class="t-small" style="margin-bottom:14px;">Everything captured at onboarding.</p>
+    <div id="sg-body" style="max-height:60vh;overflow-y:auto;"></div>
   </div>
 </div>
 
@@ -446,13 +477,88 @@ function savePerms(btn){
   const t=btn.textContent; btn.textContent='Saved ✓'; setTimeout(()=>{ btn.textContent=t; closePermModal(); }, 700);
 }
 
+/* ── Signups — onboarding review (metrics · intake · agreements · admin roles).
+   Mock intake for the roster, plus the LIVE signup read from olos.userState.v1 /
+   olos.session.v1 (display-only). Production: participants + agreement_acceptances. ── */
+const INTAKE={
+  m1:{joined:'Jun 12', sector:'Technology', yearsExp:'10–19 years', education:'Graduate degree', referral:'Invited · L. Ortega', optIn:true, docs:['participation','guidelines','mentor'], linkedin:'linkedin.com/in/priyashah'},
+  m2:{joined:'Jun 14', sector:'Business & finance', yearsExp:'20+ years', education:'Bachelor’s degree', referral:'An event', optIn:true, docs:['participation','guidelines','mentor'], linkedin:''},
+  m3:{joined:'Jun 18', sector:'Government & public sector', yearsExp:'5–9 years', education:'Some college', referral:'A friend · T. Nguyen', optIn:false, docs:['participation','guidelines'], linkedin:'linkedin.com/in/jokafor'},
+  m4:{joined:'Jun 20', sector:'Nonprofit & community', yearsExp:'10–19 years', education:'Bachelor’s degree', referral:'Somewhere else', optIn:true, docs:['participation','guidelines'], linkedin:''},
+  m5:{joined:'Jun 25', sector:'Prefer not to answer', yearsExp:'1–4 years', education:'Prefer not to answer', referral:'An event', optIn:false, docs:['participation','guidelines'], linkedin:''},
+  m6:{joined:'Jun 28', sector:'Education', yearsExp:'20+ years', education:'Graduate degree', referral:'Invited · Labs team', optIn:true, docs:['participation','guidelines','mentor'], linkedin:'linkedin.com/in/aishakarim'}
+};
+const DOC_LABELS={participation:'Participation Agreement', guidelines:'Volunteer Guidelines', mentor:'Mentor Agreement'};
+function readLiveSignup(){
+  let u=null,s=null;
+  try{ u=JSON.parse(localStorage.getItem('olos.userState.v1')||'null'); }catch(e){}
+  try{ s=JSON.parse(localStorage.getItem('olos.session.v1')||'null'); }catch(e){}
+  if(!s||!s.signedIn) return null;
+  const a=(u&&u.answers)||{};
+  return { id:'live', name:(s.fullName||s.name||'You')+' — You (live)', joined:new Date(s.at||Date.now()).toLocaleDateString('en-US',{month:'short',day:'numeric'}),
+    roles:(u&&u.roles&&u.roles.length?u.roles:['—']), sector:a.sector||'—', sectorOther:a.sectorOther||'', yearsExp:a.yearsExp||'—', education:a.education||'—',
+    work:a.work||'—', zip:a.zip||'—', linkedin:a.linkedin||'', hearAbout:a.hearAbout||'—',
+    referral:(u&&u.referral&&(u.referral.by||u.referral.source))?(u.referral.source+(u.referral.by?' · '+u.referral.by:'')):'—',
+    optIn:!!(u&&u.contactOptIn), agreements:(u&&u.agreements)||[], emails:(u&&u.emails)||[], live:true };
+}
+function signupRoster(){
+  const rows=PEOPLE.filter(p=>p.id!=='you').map(p=>({ id:p.id, name:p.name, roles:p.roles, live:false, ...(INTAKE[p.id]||{}) }));
+  const live=readLiveSignup(); if(live) rows.unshift(live);
+  return rows;
+}
+function renderSignups(){
+  const rows=signupRoster();
+  const m=document.getElementById('signup-metrics'); if(!m) return;
+  const count=f=>rows.filter(f).length;
+  const optPct=rows.length?Math.round(100*count(r=>r.optIn)/rows.length):0;
+  const topSector=(()=>{ const t={}; rows.forEach(r=>{ if(r.sector&&r.sector!=='—'&&r.sector!=='Prefer not to answer') t[r.sector]=(t[r.sector]||0)+1; }); const e=Object.entries(t).sort((a,b)=>b[1]-a[1])[0]; return e?e[0]:'—'; })();
+  const stat=(n,l)=>'<div class="lcard" style="padding:16px 18px;"><div class="t-stat" style="font-size:26px;">'+n+'</div><div class="lbl" style="margin-top:2px;">'+l+'</div></div>';
+  m.innerHTML=stat(rows.length,'Signups')+stat(count(r=>(r.roles||[]).some(x=>/mentor/i.test(x))),'Mentors')+stat(count(r=>(r.roles||[]).some(x=>/volunteer/i.test(x))),'Volunteers')+stat(optPct+'%','Contact opt-in')+stat(topSector,'Top sector');
+  document.getElementById('signup-rows').innerHTML=rows.map((r,i)=>{
+    const docs=r.live?(r.agreements||[]).length:(r.docs||[]).length;
+    return '<tr onclick="openSignup('+i+')" style="cursor:pointer;">'
+      +'<td>'+(r.live?'<b>':'')+r.name+(r.live?'</b>':'')+'</td><td>'+(r.joined||'—')+'</td>'
+      +'<td>'+(r.roles||[]).join(', ')+'</td><td>'+(r.sector||'—')+'</td><td>'+(r.yearsExp||'—')+'</td>'
+      +'<td>'+(r.referral||'—')+'</td><td>'+docs+' ✓</td><td>'+(r.optIn?'Yes':'No')+'</td></tr>';
+  }).join('');
+  renderAdminUsers();
+}
+function openSignup(i){
+  const r=signupRoster()[i]; if(!r) return;
+  const row=(k,v)=>'<div style="display:flex;gap:14px;padding:9px 0;border-bottom:1px solid var(--rule);"><span class="lbl" style="width:120px;flex-shrink:0;padding-top:2px;">'+k+'</span><span class="t-small" style="flex:1;">'+(v||'—')+'</span></div>';
+  const docs=r.live
+    ? (r.agreements||[]).map(g=>(DOC_LABELS[g.doc]||g.doc)+' · '+(g.version||'')+' · '+new Date(g.at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})).join('<br>')
+    : (r.docs||[]).map(d=>DOC_LABELS[d]+' ✓').join('<br>');
+  const email=r.live&&r.emails&&r.emails.length?('<b>'+r.emails[0].subject+'</b><br><span style="white-space:pre-line;">'+r.emails[0].body+'</span>'):'';
+  document.getElementById('sg-title').textContent=r.name;
+  document.getElementById('sg-body').innerHTML=
+    row('Joined', r.joined)+row('Roles', (r.roles||[]).join(', '))
+    +(r.live?row('Work status', r.work)+row('Zip', r.zip):'')
+    +row('Sector', r.sector+(r.sectorOther?' — '+r.sectorOther:''))+row('Experience', r.yearsExp)+row('Education', r.education)
+    +row('LinkedIn', r.linkedin)+row('Heard via', r.hearAbout||r.referral)+row('Contact opt-in', r.optIn?'Yes — updates, newsletters, invites':'No — account-critical only')
+    +row('Documents', docs||'—')
+    +(email?'<div class="lbl lbl-teal" style="margin:16px 0 8px;">Welcome email (simulated outbox)</div><div class="t-small" style="background:var(--tint);border-radius:var(--r);padding:12px 14px;">'+email+'</div>':'');
+  document.getElementById('sg-modal').classList.add('open');
+}
+function closeSignup(){ document.getElementById('sg-modal').classList.remove('open'); }
+function renderAdminUsers(){
+  const el=document.getElementById('admin-users'); if(!el) return;
+  const admins=PEOPLE.filter(p=>p.roles.includes('Admin'));
+  const others=PEOPLE.filter(p=>!p.roles.includes('Admin'));
+  el.innerHTML='<div style="display:flex;flex-direction:column;gap:2px;">'
+    +admins.map(p=>'<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--rule);"><b class="t-small" style="flex:1;">'+p.name+'</b><span class="t-small" style="color:var(--meta);">'+p.roles.join(' · ')+'</span>'+(p.id==='you'?'<span class="t-small" style="color:var(--meta-soft);">that’s you</span>':'<button class="btn btn-ghost-teal btn-sm" onclick="toggleAdmin(\''+p.id+'\')">Revoke admin</button>')+'</div>').join('')
+    +'</div><div style="display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap;"><span class="t-small" style="color:var(--meta);">Grant admin:</span>'
+    +others.map(p=>'<button class="chip" onclick="toggleAdmin(\''+p.id+'\')">'+p.name+'</button>').join('')+'</div>';
+}
+function toggleAdmin(id){ const p=PEOPLE.find(x=>x.id===id); if(!p) return; const i=p.roles.indexOf('Admin'); if(i>=0) p.roles.splice(i,1); else p.roles.unshift('Admin'); renderAdminUsers(); renderPeople(); }
+
 /* ── Panel switcher (own tiny router — do not import index.html's) ── */
 function showAdminPanel(id){
   document.querySelectorAll('.apanel').forEach(p=>p.classList.remove('active'));
   document.getElementById('apanel-'+id).classList.add('active');
   document.querySelectorAll('#admin-tabs .chip').forEach(c=>c.classList.toggle('active', c.dataset.panel===id));
 }
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') closePermModal(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closePermModal(); closeSignup(); } });
 
 /* ── Feedback — mirrored from index.html's widget. ── */
 const FEEDBACK_LOG=[];
@@ -471,8 +577,9 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeFeedback(); }
   if(st.config) CONFIG={...CONFIG, ...st.config};
   if(st.logDueAt) logDueAt=st.logDueAt;
   if(['tallied','registration','closed'].includes(PHASES[phaseIdx])&&!projects.length) runTally();
-  renderPhaseRail(); renderTallyOut(); renderLogGate(); renderCycleControl(); renderVotes(); renderInviteChips(); renderInvites(); renderPeople();
+  renderPhaseRail(); renderTallyOut(); renderLogGate(); renderCycleControl(); renderVotes(); renderInviteChips(); renderInvites(); renderPeople(); renderSignups();
 })();
+window.addEventListener('storage', e=>{ if(e.key==='olos.userState.v1'||e.key==='olos.session.v1') renderSignups(); }); // the live signup row updates as onboarding happens in another tab
 window.addEventListener('storage', e=>{ if(e.key===CYCLE_STATE_KEY){ const st=readCycleState(); const i=PHASES.indexOf(st.formationPhase||'submission'); phaseIdx=i<0?0:i; if(Array.isArray(st.projects)) projects=st.projects; logDueAt=st.logDueAt||null; renderPhaseRail(); renderTallyOut(); renderLogGate(); } });
 </script>
 </body>

@@ -113,7 +113,7 @@
 /* role opt cards */
 .opt-card { display:flex; gap:14px; align-items:flex-start; padding:20px; border-radius:var(--r); border:1px solid var(--rule); background:var(--white); cursor:pointer; transition:border-color .15s, box-shadow .15s; }
 .opt-card.selected { border-color:var(--teal); box-shadow:inset 0 0 0 1px var(--teal); }
-.opt-check { width:24px; height:24px; border-radius:50%; border:2px solid var(--rule-ink); flex-shrink:0; margin-top:2px; display:flex; align-items:center; justify-content:center; transition:all .15s; opacity:.4; }
+.opt-check { width:24px; height:24px; border-radius:6px; /* square check — role intent is a multi-select; circles read as radios */ border:2px solid var(--rule-ink); flex-shrink:0; margin-top:2px; display:flex; align-items:center; justify-content:center; transition:all .15s; opacity:.4; }
 .opt-card.selected .opt-check { background:var(--teal); border-color:var(--teal); opacity:1; }
 .opt-check svg { width:14px; height:14px; stroke:#fff; opacity:0; transition:opacity .15s; }
 .opt-card.selected .opt-check svg { opacity:1; }
@@ -320,6 +320,13 @@
 .agree-hint { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px; line-height:20px; color:var(--meta); }
 .agree-hint.read { color:var(--teal-deep); font-weight:600; }
 .choice.gated { opacity:.5; cursor:not-allowed; }
+/* Full legal documents (agreements.js) inside the scroll box — generated
+   markup: .agree-h headings, .t-small paragraphs, .agree-ul lists. */
+.agree-scroll .agree-h { font-size:14px; margin:16px 0 4px; }
+.agree-scroll .agree-h:first-child { margin-top:0; }
+.agree-scroll p.t-small { margin-bottom:10px; }
+.agree-scroll .agree-ul { margin:0 0 10px; padding-left:20px; }
+.agree-scroll .agree-ul li { margin-bottom:6px; }
 
 /* open-source footer */
 .osfooter { background:var(--ink); color:var(--od1); position:relative; }

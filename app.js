@@ -8,7 +8,12 @@
    dev team splits it into Next.js routes (docs/HANDOFF.md §7).
    Load order: shared.js → the seven data.js files → chrome.js → app.js → the
    page's inline boot → search.js. */
-const userState = {name:'Alex', initials:'AR', roles:[], isMentor:false, signedIn:false, completed:{}, profileAnswers:{}, mentorAnswers:{}, volunteerAnswers:{}, saved:[], lab:{name:'',status:''}, waitlists:[], updates:[], learningLogs:[], mentorRequests:[], testimonials:[], testimonialRequests:[], following:[], ballot:null, projectId:null, nominations:[]};
+const userState = {name:'Alex', initials:'AR', roles:[], isMentor:false, signedIn:false, completed:{}, profileAnswers:{}, mentorAnswers:{}, volunteerAnswers:{}, saved:[], lab:{name:'',status:''}, waitlists:[], updates:[], learningLogs:[], mentorRequests:[], testimonials:[], testimonialRequests:[], following:[], ballot:null, projectId:null, nominations:[], answers:{}, agreements:[], contactOptIn:false, emails:[]};
+/* Agreement acceptances — one {doc, version, at} row per signed document
+   (production: agreement_acceptances). hasAgreed checks the CURRENT version,
+   so a version bump re-presents the document on the next signup/update pass. */
+function hasAgreed(doc){ const A=window.AGREEMENTS||{}; const v=A[doc]&&A[doc].version; return userState.agreements.some(a=>a.doc===doc&&(!v||a.version===v)); }
+function recordAgreement(doc){ if(hasAgreed(doc)) return; const A=window.AGREEMENTS||{}; userState.agreements.push({doc, version:(A[doc]&&A[doc].version)||'v1', at:Date.now()}); }
 const FLOW_ROLES=['mentor','volunteer','cycle']; // roles with a deferrable setup flow ('events' is passive)
 const ROLE_ITEMS={
   mentor:{title:'Complete the mentor section of your profile', sub:'Tell pods what you bring and how to reach you.'},
@@ -916,19 +921,34 @@ function renderPodChooser(){
    (the last flow step) completes registration. All registration entry points
    route through startCycleRegistration — never silently chain into the flow. ── */
 function coreEvents(){ return EVENTS.filter(e=>e.anchor&&!/kickoff/i.test(e.name)); }
+let thresholdFromSignup=false; // fromSignup adds the cycle-pitch beat (ts0) up front and routes the exit through the thank-you close
 function startCycleRegistration(backFn, fromSignup){
+  thresholdFromSignup=!!fromSignup;
   document.getElementById('th-eyebrow').textContent=fromSignup?'Your account is ready ✓':'Summer 2026 · Civic & Elections · An Open Cycle';
   document.getElementById('th-events').innerHTML=coreEvents().map(e=>'<div class="th-ev"><span class="t-small" style="color:var(--od1);font-weight:600;">✦ '+escHTML(e.name)+'</span><span class="t-small" style="color:var(--od2);flex-shrink:0;">'+fmtEvt(e)+'</span></div>').join('');
-  // Always open on the value beat — commitments come second (facilitator feedback).
-  document.getElementById('ts1').style.display='block'; document.getElementById('ts2').style.display='none';
+  // From signup: the pitch beat introduces THIS season first. Everywhere else:
+  // open on the value beat — commitments come second (facilitator feedback).
+  document.getElementById('ts0').style.display=fromSignup?'block':'none';
+  document.getElementById('ts1').style.display=fromSignup?'none':'block'; document.getElementById('ts2').style.display='none';
   showView('cycle-threshold');
 }
 function thresholdNext(){
-  document.getElementById('ts1').style.display='none'; document.getElementById('ts2').style.display='block';
+  const ts0=document.getElementById('ts0');
+  if(ts0.style.display!=='none'){ ts0.style.display='none'; document.getElementById('ts1').style.display='block'; }
+  else { document.getElementById('ts1').style.display='none'; document.getElementById('ts2').style.display='block'; }
   const sc=document.querySelector('#view-cycle-threshold .vscroll'); if(sc) sc.scrollTop=0;
 }
-function beginCycleRegistration(){ startFlow('cycle', ()=>showView('cycle-threshold')); }
-function declineCycleThreshold(){ pendingPod=null; renderTodos(); goApp('dashboard'); } // an honest exit — the cycle todo stays, nothing nags
+function beginCycleRegistration(){
+  // Registration STOPS at the deal screen (owner decision, 2026-07): seeing the
+  // commitment + tapping Begin registration records it, and the thank-you closes.
+  // No problem-statement questions, no in-flow signature — the intake questions
+  // and the Open Cycle Agreement ceremony move to a later, separate moment
+  // (concierge/email follow-up in production). FLOWS('cycle') is retained but
+  // unreferenced from registration.
+  userState.cycleStatus='interested'; saveUserState(); renderTodos();
+  showThankYou('interested');
+}
+function declineCycleThreshold(){ pendingPod=null; renderTodos(); if(thresholdFromSignup){ showThankYou(false); } else { goApp('dashboard'); } } // an honest exit — the cycle todo stays, nothing nags; from signup it still closes with the thank-you
 /* Signing lands here: the confirmation carries the kickoff date, a calendar
    file of the anchor events, and the pod chooser if no pod was picked. */
 function cycleICS(){
@@ -963,8 +983,41 @@ function showCycleSigned(chosePod){
   document.getElementById('cs-actions').innerHTML=chosePod
     ? '<p class="t-small" style="margin-bottom:12px;">Your pod: <b>'+escHTML(CYCLE.pod)+'</b> ✓</p><button class="btn btn-teal btn-lg btn-block" onclick="goApp(\'cycles\')">Go to your cycle →</button>'
     : '<button class="btn btn-teal btn-lg btn-block" onclick="goApp(\'cycles\');openPodChooser()">Choose your pod →</button><button class="btn-link" style="color:var(--meta);margin-top:16px;" onclick="goApp(\'cycles\')">Go to your cycle →</button>';
+  // Signing from the signup ending still closes with the thank-you (owner
+  // decision: onboarding ends on thanks either way) — and the summary email
+  // goes out with the registration included.
+  if(thresholdFromSignup){ sendWelcomeEmail(true); document.getElementById('cs-actions').innerHTML+='<button class="btn-link" style="color:var(--meta);margin-top:16px;display:block;margin-left:auto;margin-right:auto;" onclick="showThankYou(true)">Finish up — see everything you signed up for →</button>'; }
   showView('cycle-signed');
 }
+/* ── The thank-you close + the welcome-summary email (simulated — production:
+   a transactional send on signup completion; see docs/OLOS_BACKEND_CHANGES.md).
+   The screen and the email carry the same summary: one source of truth. ── */
+function signupSummaryRows(registered){
+  const A=window.AGREEMENTS||{};
+  const rows=[
+    ['Your account', (userState.fullName||'')+' · alex.rivera@gmail.com · '+((userState.lab&&userState.lab.name)||'The Labs')],
+    ['How you want to take part', (userState.roles&&userState.roles.length?userState.roles.map(r=>({cycle:'Build Cycle',events:'Events & workshops',volunteer:'Volunteer',mentor:'Mentor'}[r]||r)).join(' · '):'Exploring for now')],
+    ['What you signed', userState.agreements.map(g=>((A[g.doc]&&A[g.doc].title)||g.doc)+' ('+new Date(g.at).toLocaleDateString('en-US',{month:'short',day:'numeric'})+')').join(' · ')||'—'],
+    ['Build Cycle', registered==='interested'?'You’re in — we’ll email you the next step to complete registration':registered?'Registered — Civics & Elections · Kickoff July 14':'Not this season — the door stays open'],
+    ['Hearing from us', userState.contactOptIn?'Updates, newsletters, and invites — you said yes':'Account-critical messages only']
+  ];
+  return rows;
+}
+function sendWelcomeEmail(registered){
+  if(userState.emails.some(e=>e.kind==='welcome')) return; // once
+  userState.emails.push({ kind:'welcome', to:'alex.rivera@gmail.com',
+    subject:'Welcome to The Upskilling Labs — here’s what you signed up for',
+    body:signupSummaryRows(registered).map(r=>r[0]+': '+r[1]).join('\n'), at:Date.now() });
+  saveUserState(); // production: the API triggers the transactional email — this row is the outbox record
+}
+function showThankYou(registered){
+  sendWelcomeEmail(registered);
+  document.getElementById('ty-rows').innerHTML=signupSummaryRows(registered).map(r=>'<div style="display:flex;gap:16px;padding:12px 0;border-bottom:1px solid var(--rule);text-align:left;"><span class="lbl" style="width:130px;flex-shrink:0;padding-top:2px;">'+escHTML(r[0])+'</span><span class="t-small" style="flex:1;color:var(--charcoal);">'+escHTML(r[1])+'</span></div>').join('');
+  renderTodos(); showView('thankyou');
+}
+/* Onboarding never exits into the member portal (owner decision) — the thank-you
+   is the terminus; Done returns to the public landing. */
+function closeOnboarding(){ if(document.getElementById('view-landing')) showView('landing'); else location.href='../index.html'; }
 /* ── Leaving well (UX_FINDINGS F4) — the agreement promises it, so it has a
    path: step back from the cycle with a note to your Poderator. No guilt UI,
    the door stays open, commons contributions stay credited. Production:
@@ -995,8 +1048,43 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closePodChooser()
 
 function signinReturning(){ userState.signedIn=true; writeSession(); showView('dashboard'); } // → navigates to dashboard/ (the real Home page)
 function updateRoleBtn(){ const c=document.querySelectorAll('#role-options input:checked'); document.getElementById('role-continue-btn').disabled=c.length===0; document.querySelectorAll('#role-options .opt-card').forEach(x=>x.classList.toggle('selected',x.querySelector('input').checked)); }
-function submitRoleIntent(){ userState.roles=[...document.querySelectorAll('#role-options input:checked')].map(c=>c.value); userState.isMentor=userState.roles.includes('mentor'); saveUserState(); startFlow('signup', ()=>showView('role-intent')); }
-function continueWithGoogle(){ userState.signedIn=true; showView('role-intent'); }
+function submitRoleIntent(){
+  const picked=[...document.querySelectorAll('#role-options input:checked')].map(c=>c.value);
+  if(roleUpdateMode){
+    // A member updating how they take part — never re-run signup. Newly added
+    // roles with a setup flow enter through their own seam; the rest are todos.
+    roleUpdateMode=false;
+    const prev=userState.roles||[];
+    const added=picked.filter(r=>!prev.includes(r)&&FLOW_ROLES.includes(r)&&!userState.completed[r]);
+    userState.roles=picked; userState.isMentor=picked.includes('mentor'); saveUserState(); renderTodos();
+    if(added.length){ startRoleFlow(added[0], ()=>showWelcomeBack()); } else { showWelcomeBack(); }
+    return;
+  }
+  userState.roles=picked; userState.isMentor=picked.includes('mentor'); saveUserState(); startFlow('signup', ()=>showView('role-intent'));
+}
+function continueWithGoogle(){
+  // Already a member? Google recognizes the account — show what's on file and
+  // offer updates (owner decision) instead of re-running signup.
+  if(userState.signedIn){ showWelcomeBack(); return; }
+  userState.signedIn=true; showView('role-intent');
+}
+/* ── The returning-member branch: review what's on file, then update ── */
+let roleUpdateMode=false;
+function showRoleUpdate(){ roleUpdateMode=true; document.querySelectorAll('#role-options input').forEach(i=>{ i.checked=(userState.roles||[]).includes(i.value); }); updateRoleBtn(); showView('role-intent'); }
+function editSignupDetails(){
+  const parts=(userState.fullName||'').split(' '); const a=userState.answers||{};
+  startFlow('signup', ()=>showWelcomeBack(), { _edit:true,
+    first:userState.name||parts[0]||'', last:parts.slice(1).join(' '), zip:a.zip||'',
+    work:a.work, sector:a.sector, sectorOther:a.sectorOther, yearsExp:a.yearsExp, education:a.education,
+    linkedin:a.linkedin, hearAbout:a.hearAbout, referredBy:(userState.referral&&userState.referral.by)||'',
+    keepPosted:userState.contactOptIn });
+}
+function showWelcomeBack(){
+  document.getElementById('wb-greeting').textContent='Welcome back, '+(userState.name||'friend')+'.';
+  document.getElementById('wb-rows').innerHTML=signupSummaryRows(!!userState.completed.cycle)
+    .map(r=>'<div style="display:flex;gap:16px;padding:12px 0;border-bottom:1px solid var(--rule);text-align:left;"><span class="lbl" style="width:130px;flex-shrink:0;padding-top:2px;">'+escHTML(r[0])+'</span><span class="t-small" style="flex:1;color:var(--charcoal);">'+escHTML(r[1])+'</span></div>').join('');
+  showView('welcome-back');
+}
 function renderMentor(){ document.getElementById('ms1').style.display=mentorStep===1?'block':'none'; document.getElementById('ms2').style.display=mentorStep===2?'block':'none'; document.getElementById('me-next').textContent=mentorStep===2?'Set up my profile':'Next'; }
 function mentorSlideNext(){ if(mentorStep===1){ mentorStep=2; renderMentor(); document.querySelector('#view-mentor-explainer .vscroll').scrollTop=0; } else { startFlow('mentor', ()=>{ mentorStep=1; renderMentor(); showView('mentor-explainer'); }); } }
 
@@ -1010,17 +1098,46 @@ const EXPERTISE=['AI tools','Design','Product','Data','Writing','Facilitation','
 const ENGAGE=['Workshops','Office hours','Slack support','Pod coaching'];
 const VOL_AREAS=['Events & logistics','Outreach & community','Mentoring support','Content & docs','Tech & tooling','Partnerships'];
 const VOL_WAYS=['At in-person events','Behind the scenes','On-call for specific needs','An ongoing role'];
+const PNTA='Prefer not to answer'; // every demographic ask carries an honest out (owner decision)
+const SECTORS=['Technology','Healthcare','Education','Government & public sector','Nonprofit & community','Business & finance','Creative & media','Trades & manufacturing','Retail & service','Something else',PNTA];
+const YEARS_EXP=['Just starting out','1–4 years','5–9 years','10–19 years','20+ years',PNTA];
+const EDUCATION=['High school or GED','Some college','Associate degree','Bachelor’s degree','Graduate degree','Trade or technical certification',PNTA];
+/* Events-only signups travel light (owner decision): no background questions, no
+   agreements — name/zip, how they heard of us, the contact opt-in, done. The deeper
+   asks arrive if they ever add a real role (welcome-back → change roles re-runs
+   only what's missing, and the agreement steps' when-guards catch up then). */
+function eventsOnly(){ const r=userState.roles||[]; return r.length>0 && r.every(x=>x==='events'); }
 function FLOWS(name){
-  if(name==='signup') return { eyebrow:'Your profile', finalLabel:'Become an Upskiller', finalClass:'btn-red',
-    onComplete:()=>{ const f=(fans.first||'Alex').trim()||'Alex'; userState.name=f; userState.fullName=f+' '+(fans.last||'Rivera'); userState.initials=(f[0]||'A').toUpperCase()+((fans.last||'R')[0]||'R').toUpperCase(); userState.signedIn=true; const z=String(fans.zip||''); const labKey=/^20[0-5]/.test(z)?'dc':/^21[0-2]/.test(z)?'baltimore':/^19[0-4]/.test(z)?'philadelphia':'dc'; userState.lab={...METROS[labKey]}; /* metro auto-assigned from zip — a waitlist metro drives the dashboard nudge */  userState.profileVisibility='labs'; /* members-only profiles — public tier deferred (see backend doc) */ userState.referral={source:fans.hearAbout||'', by:(fans.referredBy||'').trim()}; writeSession(); saveUserState(); const pending=userState.roles.filter(r=>FLOW_ROLES.includes(r)); if(pending.length===1){ startRoleFlow(pending[0], ()=>showView('role-intent'), true); } else if(pendingWaitlist||pendingWaitlistCreate){ gateReturnTo=null; showView('landing'); consumePendingWaitlist(); /* finish the committed join HERE (the pending city is in-memory — it can't survive a navigation) */ } else if(gateReturnTo){ const r=gateReturnTo; gateReturnTo=null; r(); } else { showView('dashboard'); } },
-    steps:[ {id:'email',type:'info',q:'Signing up as',help:'We pulled this from your Google account.',render:'<div class="flow-emaillarge">alex.rivera@gmail.com</div>'},
-      {id:'about',type:'fields',q:'Tell us who you are',help:'Your zip just finds the lab nearest you — nothing else.',fields:[
+  if(name==='signup') return { eyebrow:'Your profile', finalLabel:eventsOnly()?'Sign me up':'Become an Upskiller', finalClass:'btn-red',
+    onComplete:()=>{ const f=(fans.first||'Alex').trim()||'Alex'; userState.name=f; userState.fullName=f+' '+(fans.last||'Rivera'); userState.initials=(f[0]||'A').toUpperCase()+((fans.last||'R')[0]||'R').toUpperCase(); userState.signedIn=true; const z=String(fans.zip||''); const labKey=/^20[0-5]/.test(z)?'dc':/^21[0-2]/.test(z)?'baltimore':/^19[0-4]/.test(z)?'philadelphia':'dc'; userState.lab={...METROS[labKey]}; /* metro auto-assigned from zip — a waitlist metro drives the dashboard nudge */  userState.profileVisibility='labs'; /* members-only profiles — public tier deferred (see backend doc) */ userState.referral={source:fans.hearAbout||'', by:(fans.referredBy||'').trim()};
+      // The intake answers — one object, mirrors the future participants row.
+      userState.answers={...userState.answers, zip:String(fans.zip||''), work:fans.work||'', sector:fans.sector||'', sectorOther:(fans.sectorOther||'').trim(), yearsExp:fans.yearsExp||'', education:fans.education||'', linkedin:(fans.linkedin||'').trim(), hearAbout:fans.hearAbout||''};
+      if(!eventsOnly()){ recordAgreement('participation'); recordAgreement('guidelines'); } userState.contactOptIn=!!fans.keepPosted;
+      writeSession(); saveUserState();
+      if(fans._edit){ showWelcomeBack(); return; } // returning member updating details — no re-onboarding
+      if(pendingWaitlist||pendingWaitlistCreate){ gateReturnTo=null; showView('landing'); consumePendingWaitlist(); /* finish the committed join HERE (the pending city is in-memory — it can't survive a navigation) */ }
+      else if(gateReturnTo){ const r=gateReturnTo; gateReturnTo=null; r(); }
+      else if((userState.roles||[]).includes('cycle')){ startCycleRegistration(()=>showView('dashboard'), true); } /* the cycle pitch shows only when Join a Cycle was picked */
+      else { showThankYou(false); } /* volunteer / mentor / events signups stop right here — agreements done, thank you, that's it (owner decision) */ },
+    steps:[ {id:'email',type:'info',section:'About you',q:'Signing up as',help:eventsOnly()?'We pulled this from your Google account. Two quick questions and you’re done.':'We pulled this from your Google account. Eight quick questions, two short documents — about three minutes, all told.',render:'<div class="flow-emaillarge">alex.rivera@gmail.com</div>'},
+      {id:'about',type:'fields',section:'About you',q:'Tell us who you are',help:'Your zip just finds the lab nearest you — nothing else.',fields:[
         {id:'first',label:'First name',ph:'Alex',required:true,half:true},
         {id:'last',label:'Last name',ph:'Rivera',required:true,half:true},
         {id:'zip',label:'Zip code',ph:'20001',required:true,inputmode:'numeric'} ]},
-      {id:'work',type:'choice',q:'What best describes you right now?',options:WORK.map(w=>({v:w,label:w}))},
-      {id:'hearAbout',type:'choice',q:'How did you hear about The Labs?',help:'Everyone registers through the same path — this helps us thank the people and places that send folks our way.',options:[{v:'referral',label:'A friend or colleague referred me'},{v:'invited',label:'Someone at The Labs invited me',sub:'A mentor, facilitator, or organizer'},{v:'event',label:'A workshop, summit, or event'},{v:'other',label:'Somewhere else',sub:'Social media, the library, word of mouth'}],followUp:{id:'referredBy',label:'Who referred you? (optional — so we can thank them)',ph:'e.g. Priya Shah',when:v=>v==='referral'||v==='invited'}},
-      {id:'consent',type:'consent',q:'One last thing',agreementTitle:'The Participant Agreement',agreement:PARTICIPANT_AGREEMENT,text:'I agree to the Participant Agreement and consent to receive updates from The Upskilling Labs.'} ]};
+      {id:'work',type:'choice',section:'About you',q:'What best describes you right now?',options:WORK.map(w=>({v:w,label:w})),when:()=>!eventsOnly()},
+      {id:'sector',type:'choice',section:'Your background',q:'What field do you mostly work in?',options:SECTORS.map(s=>({v:s,label:s})),followUp:{id:'sectorOther',label:'Tell us your field (optional)',ph:'e.g. Agriculture',when:v=>v==='Something else'},when:()=>!eventsOnly()},
+      {id:'yearsExp',type:'choice',section:'Your background',q:'How many years have you been working?',options:YEARS_EXP.map(y=>({v:y,label:y})),when:()=>!eventsOnly()},
+      {id:'education',type:'choice',section:'Your background',q:'What’s your highest level of education?',help:'No credentials required here — this just helps us understand who we’re serving.',options:EDUCATION.map(e=>({v:e,label:e})),when:()=>!eventsOnly()},
+      {id:'linkedin',type:'text',section:'Your background',q:'LinkedIn profile',help:'Optional — makes it easy for pods and mentors to find you.',ph:'linkedin.com/in/yourname',required:false,when:()=>!eventsOnly()},
+      {id:'hearAbout',type:'choice',section:'Last question',q:'How did you hear about The Labs?',help:'Everyone registers through the same path — this helps us thank the people and places that send folks our way.',options:[{v:'referral',label:'A friend or colleague referred me'},{v:'invited',label:'Someone at The Labs invited me',sub:'A mentor, facilitator, or organizer'},{v:'event',label:'A workshop, summit, or event'},{v:'other',label:'Somewhere else',sub:'Social media, the library, word of mouth'}],followUp:{id:'referredBy',label:'Who referred you? (optional — so we can thank them)',ph:'e.g. Priya Shah',when:v=>v==='referral'||v==='invited'}},
+      /* The paperwork — questions first, documents last (owner decision). One
+         document per screen, each scroll-gated with its own agree act — separate
+         assent per document is the stronger clickwrap pattern, and each acceptance
+         records its own {doc, version, at}. Already-accepted current versions skip
+         (returning members). */
+      {id:'agreeGuidelines',type:'consent',section:'The paperwork · 1 of 2',q:'The Volunteer Guidelines',help:'How we work together — read it to the end.',agreementTitle:'The Volunteer Guidelines',agreementHTML:(window.AGREEMENTS&&window.AGREEMENTS.guidelines.html)||'',text:'I have read and agree to the Volunteer Guidelines.',when:()=>!eventsOnly()&&!hasAgreed('guidelines')},
+      {id:'agreeParticipation',type:'consent',section:'The paperwork · 2 of 2',q:'The Participation Agreement',help:'This is the deal between you and The Labs — read it to the end.',agreementTitle:'The Volunteer Participation Agreement',agreementHTML:(window.AGREEMENTS&&window.AGREEMENTS.participation.html)||'',text:'I have read and agree to the Volunteer Participation Agreement.',when:()=>!eventsOnly()&&!hasAgreed('participation')},
+      {id:'keepPosted',type:'consent',optional:true,section:'Last thing',q:'Can we contact you?',help:'Entirely up to you — account-critical messages arrive either way.',text:'Yes, I’d like to receive updates, newsletters, and invites from The Upskilling Labs.'} ]};
   if(name==='survey') return { eyebrow:'Field survey · Civic & Elections', finalLabel:'Submit observation', finalClass:'btn-teal',
     onComplete:()=>{ appendSurveyObservation((fans.obsTitle||'').trim(), (fans.obsSummary||'').trim());
       flow._count=(flow._count||0)+1;
@@ -1080,12 +1197,16 @@ function FLOWS(name){
           {title:'I’ll check in every week.', body:'Five minutes, once a week. If I skip it, the app pauses until I catch up. If life gets in the way, I’ll tell my Poderator instead of going quiet.'},
           {title:'Our project is open source.', body:'What we build is an open-source community project — MIT for code, CC BY 4.0 for everything else, with everyone who worked on it credited. Once the cycle ends, I’m free to do whatever I want with it, and so is anyone else.'}
         ]} ]};
-  if(name==='mentor') return { eyebrow:'Mentor profile', finalLabel:'Publish mentor profile', finalClass:'btn-teal', onComplete:()=>finishRoleFlow('mentor'),
+  if(name==='mentor') return { eyebrow:'Mentor profile', finalLabel:'Publish mentor profile', finalClass:'btn-teal', onComplete:()=>{ recordAgreement('mentor'); finishRoleFlow('mentor'); showThankYou(userState.cycleStatus==='interested'?'interested':!!userState.completed.cycle); /* mentor publish closes on the thank-you (owner decision) */ },
     steps:[ {id:'expertise',type:'tags',q:'What do you bring?',help:'Pick the areas where you can help — everything here shows on your mentor profile — visible to all Labs members — which is how upskillers and project teams find you.',options:EXPERTISE,required:true},
       {id:'engage',type:'checks',q:'How would you like to engage?',help:'Select all that work for you.',options:ENGAGE,required:true},
       {id:'pods',type:'textarea',q:'Who have you mentored, and how?',help:'Tell us where, when, and how you\u2019ve mentored — inside or outside The Labs. No names needed.',ph:'e.g. 3 pods in the Civic AI cycle — weekly office hours on scoping and shipping.',required:true},
-      {id:'tz',type:'choice',q:'What time zone are you in?',options:TZ.map(t=>({v:t,label:t}))} ]};
-  if(name==='volunteer') return { eyebrow:'Volunteer profile', finalLabel:'Save profile', finalClass:'btn-teal', onComplete:()=>finishRoleFlow('volunteer'),
+      {id:'tz',type:'choice',q:'What time zone are you in?',options:TZ.map(t=>({v:t,label:t}))},
+      /* Ceremony after intent (owner decision): the Mentor Agreement is signed at
+         the seam where it applies — the last step before publishing, never during
+         signup. Skips if the current version is already on file. */
+      {id:'agreeMentor',type:'consent',q:'The Mentor Agreement',help:'One document — read it to the end, then publish.',agreementTitle:'The Volunteer Mentor Agreement',agreementHTML:(window.AGREEMENTS&&window.AGREEMENTS.mentor.html)||'',text:'I have read and agree to the Volunteer Mentor Agreement.',when:()=>!hasAgreed('mentor')} ]};
+  if(name==='volunteer') return { eyebrow:'Volunteer profile', finalLabel:'Save profile', finalClass:'btn-teal', onComplete:()=>{ finishRoleFlow('volunteer'); showThankYou(userState.cycleStatus==='interested'?'interested':!!userState.completed.cycle); /* volunteer save closes on the thank-you (owner decision) */ },
     steps:[ {id:'seam',type:'info',q:'Before you start',help:'Three quick questions so the Labs team can match you to events and needs. Your answers go to the team — nothing publishes without your say-so.',render:'<div class="flow-emaillarge" style="font-size:18px;line-height:1.5;">Your volunteer profile<br>Three questions · about a minute</div>'},
       {id:'areas',type:'tags',q:'Where would you like to help?',help:'Pick the areas that fit. Choose as many as you like.',options:VOL_AREAS,required:true},
       {id:'ways',type:'checks',q:'How would you like to pitch in?',help:'Select all that work for you.',options:VOL_WAYS,required:true},
@@ -1135,7 +1256,7 @@ function pad2(n){ return n<10?'0'+n:''+n; }
 function fVisible(){ return flow.steps.map((s,i)=>i).filter(i=>{ const s=flow.steps[i]; return !s.when||s.when(fans); }); }
 function renderFlowStep(){
   const step=flow.steps[fstep];
-  document.getElementById('flow-eyebrow').textContent=flow.eyebrow;
+  document.getElementById('flow-eyebrow').textContent=step.section?flow.eyebrow+' · '+step.section:flow.eyebrow; /* section labels pace the journey — the counter says how far, the section says what's next */
   document.getElementById('flow-q').textContent=step.q;
   const help=document.getElementById('flow-help'); help.textContent=step.help||''; help.style.display=step.help?'block':'none';
   const vis=fVisible(); const pos=vis.indexOf(fstep);
@@ -1213,22 +1334,26 @@ function renderFlowInput(step){
     box.appendChild(w); setActions({enabled:fans[step.id].length>0}); return;
   }
   if(step.type==='consent'){
-    // Scroll-gated when the step carries the agreement text (step.agreement):
+    // Scroll-gated when the step carries agreement content (step.agreement as
+    // {h,p} sections, or step.agreementHTML — a full document from agreements.js):
     // the checkbox stays inert until the reader reaches the end.
+    // step.optional = the check is a genuine choice (e.g. the contact opt-in) —
+    // Continue is enabled either way; only a gated agreement still blocks it.
     let isRead=()=>true;
+    const canGo=()=> (step.optional?true:!!fans[step.id]) && isRead();
     const row=document.createElement('label'); row.className='choice'+(fans[step.id]?' selected':''); row.style.alignItems='flex-start';
     row.innerHTML='<span class="dot square" style="margin-top:2px;"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><div class="c-main"><div class="c-label" style="font-weight:400;font-size:15px;line-height:22px;color:var(--charcoal);">'+step.text+'</div></div>';
-    if(step.agreement){
+    if(step.agreement||step.agreementHTML){
       const ab=document.createElement('div'); ab.className='agree-scroll'; ab.tabIndex=0; ab.setAttribute('role','region'); ab.setAttribute('aria-label', step.agreementTitle||'Agreement');
       ab.innerHTML=(step.agreementTitle?'<div class="lbl lbl-teal" style="margin-bottom:12px;">'+step.agreementTitle+'</div>':'')
-        +step.agreement.map(a=>'<div style="margin-bottom:12px;"><div class="t-h4" style="font-size:14px;margin-bottom:2px;">'+a.h+'</div><p class="t-small">'+a.p+'</p></div>').join('');
+        +(step.agreementHTML||step.agreement.map(a=>'<div style="margin-bottom:12px;"><div class="t-h4" style="font-size:14px;margin-bottom:2px;">'+a.h+'</div><p class="t-small">'+a.p+'</p></div>').join(''));
       const hint=document.createElement('div'); hint.className='agree-hint'; hint.textContent='↓ Scroll to the end to agree';
       box.appendChild(ab); box.appendChild(hint);
       row.classList.add('gated'); row.style.marginTop='14px';
-      isRead=attachAgreeGate(ab, hint, ()=>{ row.classList.remove('gated'); });
+      isRead=attachAgreeGate(ab, hint, ()=>{ row.classList.remove('gated'); enable(canGo()); });
     }
-    row.onclick=()=>{ if(!isRead()) return; fans[step.id]=!fans[step.id]; row.classList.toggle('selected',fans[step.id]); enable(!!fans[step.id]); };
-    box.appendChild(row); setActions({enabled:!!fans[step.id]&&isRead()}); return;
+    row.onclick=()=>{ if(!isRead()) return; fans[step.id]=!fans[step.id]; row.classList.toggle('selected',fans[step.id]); enable(canGo()); };
+    box.appendChild(row); setActions({enabled:canGo()}); return;
   }
   if(step.type==='signature'){
     // The Open Cycle Agreement — typed full name + date is the signature
@@ -1335,6 +1460,11 @@ function renderTodos(){
   } else if(userState.lab&&userState.lab.status==='waitlist'&&METROS[userState.lab.slug]){ const wm=METROS[userState.lab.slug];
     todos.push({id:'waitlist-nudge',label:'Local labs',title:'No lab in '+wm.name+' yet',body:wm.waiting+' '+(wm.waiting===1?'person is':'people are')+' waiting for one. Add your name and we’ll email you when it ignites.',cta:'Join the waitlist',action:()=>{goApp('labs');openWaitlistJoin(wm.slug);},dismiss:true});
   }
+  // Deferred role setups — signup never chains into role flows anymore (owner
+  // decision: everyone exits through the cycle pitch), so picked-but-unfinished
+  // roles surface here instead.
+  if((userState.roles||[]).includes('mentor')&&!userState.completed.mentor) todos.push({id:'role-mentor',label:'Mentor',title:'Set up your mentor profile',body:'Four quick questions and the Mentor Agreement — then teams can find you.',cta:'Start now',action:()=>startRoleFlow('mentor',()=>goApp('dashboard')),dismiss:true});
+  if((userState.roles||[]).includes('volunteer')&&!userState.completed.volunteer) todos.push({id:'role-volunteer',label:'Volunteer',title:'Finish your volunteer profile',body:'Three questions so the team can match you to events and needs.',cta:'Start now',action:()=>startRoleFlow('volunteer',()=>goApp('dashboard')),dismiss:true});
   if(!inCycle()) todos.push({label:'Cycles',title:'Build Cycle is forming',body:'Pod registration opens Aug 3.',cta:'Learn more',action:()=>goApp('cycles')});
   const c=document.getElementById('todos-container'); if(!c)return; c.innerHTML='';
   todos.filter(t=>!t.id||!dismissedTodos.has(t.id)).forEach(t=>{ const d=document.createElement('div'); d.className='lcard'; d.style.padding='20px 22px'; d.style.position='relative'; d.innerHTML=(t.dismiss?'<button title="Dismiss" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--meta);cursor:pointer;font-size:16px;line-height:1;" onclick="dismissTodo(\''+t.id+'\',event)">×</button>':'')+'<div class="lbl lbl-teal" style="margin-bottom:8px;">'+t.label+'</div><div class="t-h4" style="margin-bottom:6px;">'+t.title+'</div><p class="t-small" style="margin-bottom:'+(t.cta?'14px':'0')+';">'+t.body+'</p>'+(t.cta?'<button class="btn btn-ghost-teal btn-sm">'+t.cta+'</button>':''); if(t.action){ const b=d.querySelector('.btn.btn-ghost-teal'); if(b) b.onclick=t.action; } c.appendChild(d); });
@@ -1698,12 +1828,13 @@ function saveUserState(){ if(!userState.signedIn) return; try{ localStorage.setI
   testimonials:userState.testimonials, testimonialRequests:userState.testimonialRequests,
   profileAnswers:userState.profileAnswers, mentorAnswers:userState.mentorAnswers, volunteerAnswers:userState.volunteerAnswers,
   profileVisibility:userState.profileVisibility||'', referral:userState.referral||null,
+  answers:userState.answers||{}, agreements:userState.agreements||[], contactOptIn:!!userState.contactOptIn, emails:userState.emails||[],
   checklist:userState.checklist||[], dismissedTodos:[...dismissedTodos], at:Date.now()})); }catch(e){} }
 function clearUserState(){ try{ localStorage.removeItem(USTATE_KEY); }catch(e){} }
 function readUserState(){
   let u=null; try{ u=JSON.parse(localStorage.getItem(USTATE_KEY)||'null'); }catch(e){}
   if(!u||u.v!==1||!userState.signedIn) return;
-  ['completed','roles','isMentor','learningLogs','saved','following','updates','cycleAgreement','cycleStatus','stepBackNote','ballot','projectId','pod','nominations','mentorRequests','testimonials','testimonialRequests','profileAnswers','mentorAnswers','volunteerAnswers','profileVisibility','referral','checklist'].forEach(k=>{ if(u[k]!==undefined&&u[k]!==null) userState[k]=u[k]; });
+  ['completed','roles','isMentor','learningLogs','saved','following','updates','cycleAgreement','cycleStatus','stepBackNote','ballot','projectId','pod','nominations','mentorRequests','testimonials','testimonialRequests','profileAnswers','mentorAnswers','volunteerAnswers','profileVisibility','referral','checklist','answers','agreements','contactOptIn','emails'].forEach(k=>{ if(u[k]!==undefined&&u[k]!==null) userState[k]=u[k]; });
   (u.dismissedTodos||[]).forEach(id=>dismissedTodos.add(id));
   if(userState.pod) CYCLE.pod=userState.pod;
 }
@@ -1833,6 +1964,14 @@ const CEREMONY_VIEWS_HTML = `
       <div class="container" style="max-width:560px;padding:48px 24px 56px;">
         <div class="lbl lbl-teal" style="margin-bottom:18px;" id="th-eyebrow">Summer 2026 · Civic &amp; Elections · An Open Cycle</div>
 
+        <!-- Beat 0 · The cycle pitch (signup ending only) — what THIS season is,
+             before the value beat. Hidden for every other registration entry. -->
+        <div id="ts0" style="display:none;">
+          <h1 class="t-display" style="margin-bottom:14px;">This season: Civics &amp; Elections.</h1>
+          <p class="t-lede" style="color:var(--od2);margin-bottom:28px;">Elections run on trust, information, and systems most of us never see. This cycle, you’ll dig into how they actually work — and where new tools, including AI, can help communities strengthen civic life and protect democratic engagement.</p>
+          <button class="btn btn-red btn-lg btn-block" style="margin-top:8px;" onclick="thresholdNext()">Tell me more →</button>
+        </div>
+
         <!-- Beat 1 · Benefits first, rooted in the member's hero's journey (voice rule):
              open with where THEY end up, then the path, then what it takes. -->
         <div id="ts1">
@@ -1892,6 +2031,35 @@ const CEREMONY_VIEWS_HTML = `
         <a class="btn btn-ghost-teal btn-block" style="margin-bottom:12px;" id="cs-ics" download="open-cycle-events.ics">Add the cycle&rsquo;s events to your calendar</a>
         <p class="t-small" style="color:var(--meta);margin-bottom:12px;">Your committed dates live on your cycle page and dashboard — find them there anytime.</p>
         <div id="cs-actions"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ WELCOME BACK (returning member hits Join again) ════════ -->
+  <div id="view-welcome-back" class="view light s-paper">
+    <div class="vscroll" style="display:flex;align-items:center;justify-content:center;min-height:100dvh;">
+      <div class="container" style="max-width:520px;text-align:center;padding:48px 24px;">
+        <div class="lbl lbl-teal" style="margin-bottom:18px;">You already have an account ✓</div>
+        <h1 class="t-h1" style="margin-bottom:12px;" id="wb-greeting">Welcome back.</h1>
+        <p class="t-lede" style="margin-bottom:24px;">Here’s what we have on file. Update anything — or take on a new role.</p>
+        <div id="wb-rows" style="margin-bottom:24px;"></div>
+        <button class="btn btn-red btn-lg btn-block" style="margin-bottom:12px;" onclick="showRoleUpdate()">Change how you take part →</button>
+        <button class="btn btn-ghost-teal btn-block" style="margin-bottom:12px;" onclick="editSignupDetails()">Update your details</button>
+        <button class="btn-link" style="color:var(--meta);" onclick="closeOnboarding()">Done — back to The Labs</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ THANK YOU (the close of onboarding — either path) ════════ -->
+  <div id="view-thankyou" class="view light s-paper">
+    <div class="vscroll" style="display:flex;align-items:center;justify-content:center;min-height:100dvh;">
+      <div class="container" style="max-width:520px;text-align:center;padding:48px 24px;">
+        <div class="lbl lbl-teal" style="margin-bottom:18px;">You’re a member ✓</div>
+        <h1 class="t-h1" style="margin-bottom:12px;">Thank you — welcome to The Labs.</h1>
+        <p class="t-lede" style="margin-bottom:24px;">Here’s everything you signed up for, in one place.</p>
+        <div id="ty-rows" style="margin-bottom:20px;"></div>
+        <p class="t-small" style="color:var(--meta);margin-bottom:28px;">We’ve emailed this summary to alex.rivera@gmail.com, with your documents and dates. <span style="color:var(--meta-soft);">(Simulated in this prototype.)</span></p>
+        <button class="btn btn-teal btn-lg btn-block" onclick="closeOnboarding()">Done</button>
       </div>
     </div>
   </div>
