@@ -1,0 +1,37 @@
+# Copy into OLOS's .github/workflows/ — automates dev→prod migration promotion.
+#
+# Model: push migrations to the `develop` branch → applied to the DEV project.
+#        merge develop → main → applied to the PROD project.
+# Each database's schema_migrations table means already-applied files are
+# skipped, so reruns are safe.
+#
+# Repo secrets needed (Settings → Secrets → Actions):
+#   SUPABASE_ACCESS_TOKEN   — personal access token (supabase.com/dashboard/account/tokens)
+#   SUPABASE_DB_PASSWORD_DEV / SUPABASE_DB_PASSWORD_PROD
+#   SUPABASE_PROJECT_REF_DEV / SUPABASE_PROJECT_REF_PROD
+
+name: supabase-migrations
+
+on:
+  push:
+    branches: [develop, main]
+    paths: ['supabase/migrations/**']
+
+jobs:
+  push-migrations:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: ${{ github.ref_name == 'main' && secrets.SUPABASE_PROJECT_REF_PROD || secrets.SUPABASE_PROJECT_REF_DEV }}
+      SUPABASE_DB_PASSWORD: ${{ github.ref_name == 'main' && secrets.SUPABASE_DB_PASSWORD_PROD || secrets.SUPABASE_DB_PASSWORD_DEV }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+      - name: Link project
+        run: supabase link --project-ref "$PROJECT_REF"
+      - name: Show pending migrations
+        run: supabase migration list
+      - name: Apply migrations
+        run: supabase db push
