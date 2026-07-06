@@ -1135,7 +1135,7 @@ function FLOWS(name){
       {id:'about',type:'fields',section:'About you',q:'Tell us who you are',help:'Your zip just finds the lab nearest you — nothing else.',fields:[
         {id:'first',label:'First name',ph:'Alex',required:true,half:true},
         {id:'last',label:'Last name',ph:'Rivera',required:true,half:true},
-        {id:'zip',label:'Zip code',ph:'20001',required:true,inputmode:'numeric'} ]},
+        {id:'zip',label:'Zip code',ph:'20001',required:true,inputmode:'numeric',maxlength:10,pattern:/^\d{5}(-\d{4})?$/,err:'Enter a 5-digit US zip code (like 20001)'} ]},
       {id:'work',type:'choice',section:'About you',q:'What best describes you right now?',options:WORK.map(w=>({v:w,label:w})),when:()=>!eventsOnly()},
       {id:'sector',type:'choice',section:'Your background',q:'What field do you mostly work in?',options:SECTORS.map(s=>({v:s,label:s})),followUp:{id:'sectorOther',label:'Tell us your field (optional)',ph:'e.g. Agriculture',when:v=>v==='Something else'},when:()=>!eventsOnly()},
       {id:'yearsExp',type:'choice',section:'Your background',q:'How many years have you been working?',options:YEARS_EXP.map(y=>({v:y,label:y})),when:()=>!eventsOnly()},
@@ -1305,19 +1305,26 @@ function renderFlowInput(step){
   }
   if(step.type==='fields'){
     // Several labeled inputs on one screen — collapses multi-question runs (3 asks max per screen).
+    // f.pattern (regex) + f.err add format validation: Continue stays disabled and a
+    // quiet inline error shows once there's input that doesn't match (never on empty).
     const grid=document.createElement('div'); grid.className='field-grid';
     const els=step.fields.map(f=>{
       const w=document.createElement('div'); w.className='field'+(f.half?' half':'');
       const lb=document.createElement('label'); lb.htmlFor='ff-'+f.id; lb.textContent=f.label;
       const el=document.createElement('input'); el.type='text'; el.id='ff-'+f.id;
       if(f.inputmode) el.setAttribute('inputmode',f.inputmode);
+      if(f.maxlength) el.maxLength=f.maxlength;
       el.placeholder=f.ph||''; el.value=fans[f.id]||'';
-      w.appendChild(lb); w.appendChild(el); grid.appendChild(w); return [f,el];
+      w.appendChild(lb); w.appendChild(el);
+      let errEl=null;
+      if(f.pattern){ errEl=document.createElement('p'); errEl.className='t-small field-err'; errEl.style.cssText='color:var(--red);margin-top:6px;display:none;'; errEl.textContent=f.err||'Check this field'; w.appendChild(errEl); }
+      grid.appendChild(w); return [f,el,errEl];
     });
     box.appendChild(grid);
-    const valid=()=>els.every(([f,el])=>!f.required||el.value.trim().length>0);
-    els.forEach(([f,el])=>{
-      el.addEventListener('input',()=>{ fans[f.id]=el.value; enable(valid()); });
+    const fieldOk=(f,el)=>{ const v=el.value.trim(); if(!v) return !f.required; return !f.pattern||f.pattern.test(v); };
+    const valid=()=>els.every(([f,el])=>fieldOk(f,el));
+    els.forEach(([f,el,errEl])=>{
+      el.addEventListener('input',()=>{ fans[f.id]=el.value; if(errEl) errEl.style.display=(el.value.trim()&&!fieldOk(f,el))?'block':'none'; enable(valid()); });
       el.addEventListener('keydown',ev=>{ if(ev.key==='Enter'&&valid()){ ev.preventDefault(); flowAdvance(); } });
     });
     setActions({enabled:valid(), skip:step.fields.every(f=>!f.required)});
