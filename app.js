@@ -1004,13 +1004,33 @@ function signupSummaryRows(registered){
   ];
   return rows;
 }
-function sendWelcomeEmail(registered){
-  if(userState.emails.some(e=>e.kind==='welcome')) return; // once
-  userState.emails.push({ kind:'welcome', to:'alex.rivera@gmail.com',
-    subject:'Welcome to The Upskilling Labs — here’s what you signed up for',
-    body:signupSummaryRows(registered).map(r=>r[0]+': '+r[1]).join('\n'), at:Date.now() });
-  saveUserState(); // production: the API triggers the transactional email — this row is the outbox record
+/* Every change to your account gets a receipt (owner decision): the first
+   completion sends the welcome summary; ANY later profile change (roles,
+   details, new agreements) sends the update variant — same rows, same
+   template, kind:'update'. Both go through the send-welcome-summary Edge
+   Function (the separate email path; see supabase/functions/) when
+   window.WELCOME_EMAIL_ENDPOINT is set — fire-and-forget, never blocking. */
+function dispatchSummaryEmail(kind, rows, changed){
+  userState.emails.push({ kind:kind, to:'alex.rivera@gmail.com',
+    subject:kind==='update'?'Your Upskilling Labs profile changed: here’s what’s on file now':'Welcome to The Upskilling Labs: here’s what you signed up for',
+    body:(changed?('What changed: '+changed+'\n'):'')+rows.map(r=>r[0]+': '+r[1]).join('\n'), at:Date.now() });
+  saveUserState(); // the outbox record (admin → Signups shows it)
+  if(window.WELCOME_EMAIL_ENDPOINT){
+    try{ fetch(window.WELCOME_EMAIL_ENDPOINT,{ method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ to:'alex.rivera@gmail.com', firstName:userState.name||'friend', kind:kind,
+        rows:(changed?[['What changed',changed]]:[]).concat(rows) }) }).catch(()=>{}); }catch(e){}
+  }
 }
+let profileChangeNote=''; // set by the update paths; consumed by the next summary send
+function sendWelcomeEmail(registered){
+  const rows=signupSummaryRows(registered);
+  if(userState.emails.some(e=>e.kind==='welcome')){
+    // Already welcomed — this pass through the thank-you is an UPDATE receipt.
+    dispatchSummaryEmail('update', rows, profileChangeNote||'You updated your profile'); profileChangeNote=''; return;
+  }
+  dispatchSummaryEmail('welcome', rows, '');
+}
+function sendProfileUpdateEmail(changed){ dispatchSummaryEmail('update', signupSummaryRows(userState.cycleStatus==='interested'?'interested':!!userState.completed.cycle), changed); }
 function showThankYou(registered){
   sendWelcomeEmail(registered);
   document.getElementById('ty-rows').innerHTML=signupSummaryRows(registered).map(r=>'<div style="display:flex;gap:16px;padding:12px 0;border-bottom:1px solid var(--rule);text-align:left;"><span class="lbl" style="width:130px;flex-shrink:0;padding-top:2px;">'+escHTML(r[0])+'</span><span class="t-small" style="flex:1;color:var(--charcoal);">'+escHTML(r[1])+'</span></div>').join('');
@@ -1060,6 +1080,11 @@ function submitRoleIntent(){
     roleUpdateMode=false;
     const prev=userState.roles||[];
     const added=['cycle','mentor','volunteer'].filter(r=>picked.includes(r)&&!prev.includes(r)&&!userState.completed[r]);
+    const ROLE_LABEL={cycle:'Build Cycle',events:'Events & workshops',volunteer:'Volunteer',mentor:'Mentor'};
+    const gained=picked.filter(r=>!prev.includes(r)).map(r=>ROLE_LABEL[r]||r);
+    const dropped=prev.filter(r=>!picked.includes(r)).map(r=>ROLE_LABEL[r]||r);
+    const rolesChanged=gained.length||dropped.length;
+    profileChangeNote=rolesChanged?[gained.length?'Added: '+gained.join(', '):'',dropped.length?'Removed: '+dropped.join(', '):''].filter(Boolean).join(' · '):'';
     userState.roles=picked; userState.isMentor=picked.includes('mentor'); saveUserState(); renderTodos();
     roleQueue=added;
     // Upgrading into a real role requires the documents (owner decision): anyone
@@ -1067,7 +1092,11 @@ function submitRoleIntent(){
     // signs them FIRST — this catches events-only members leveling up, and
     // version bumps force a re-sign the same way.
     if(added.length&&(!hasAgreed('guidelines')||!hasAgreed('participation'))){ startFlow('agreements', ()=>showWelcomeBack()); return; }
-    if(!nextRoleInQueue()) showWelcomeBack();
+    if(!nextRoleInQueue()){
+      // No setup flows to run — the change (if any) is complete right here: receipt now.
+      if(rolesChanged){ sendProfileUpdateEmail(profileChangeNote); profileChangeNote=''; }
+      showWelcomeBack();
+    }
     return;
   }
   userState.roles=picked; userState.isMentor=picked.includes('mentor'); saveUserState(); startFlow('signup', ()=>showView('role-intent'));
@@ -1126,7 +1155,7 @@ function FLOWS(name){
       userState.answers={...userState.answers, zip:String(fans.zip||''), work:fans.work||'', sector:fans.sector||'', sectorOther:(fans.sectorOther||'').trim(), yearsExp:fans.yearsExp||'', education:fans.education||'', linkedin:(fans.linkedin||'').trim(), hearAbout:fans.hearAbout||''};
       if(!eventsOnly()){ recordAgreement('participation'); recordAgreement('guidelines'); } userState.contactOptIn=!!fans.keepPosted;
       writeSession(); saveUserState();
-      if(fans._edit){ showWelcomeBack(); return; } // returning member updating details — no re-onboarding
+      if(fans._edit){ sendProfileUpdateEmail('You updated your details'); showWelcomeBack(); return; } // returning member updating details — no re-onboarding; change receipt sent
       if(pendingWaitlist||pendingWaitlistCreate){ gateReturnTo=null; showView('landing'); consumePendingWaitlist(); /* finish the committed join HERE (the pending city is in-memory — it can't survive a navigation) */ }
       else if(gateReturnTo){ const r=gateReturnTo; gateReturnTo=null; r(); }
       else if((userState.roles||[]).includes('cycle')){ startCycleRegistration(()=>showView('dashboard'), true); } /* the cycle pitch shows only when Join a Cycle was picked */
