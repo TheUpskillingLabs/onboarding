@@ -54,7 +54,11 @@
     },
     async signInWithGoogle(){
       sessionStorage.setItem('labs.joinIntent', '1');
-      await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname } });
+      // prompt:'select_account' forces Google's account chooser every time —
+      // never silently reuse the last Google session (owner decision).
+      await client.auth.signInWithOAuth({ provider: 'google', options: {
+        redirectTo: location.origin + location.pathname,
+        queryParams: { prompt: 'select_account' } } });
     },
     async signOut(){ if (on) { try { await client.auth.signOut(); } catch(e){} } },
     joinIntent(){ return sessionStorage.getItem('labs.joinIntent') === '1'; },

@@ -1078,7 +1078,7 @@ function closePhaseInfo(){ document.getElementById('phase-info-modal').classList
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closePodChooser(); closePhaseInfo(); closeWaitlist(); } });
 
 function signinReturning(){
-  if(bk()){ Backend.signInWithGoogle(); return; } // login = the same Google identity; backendBoot() lands returning members on their data
+  if(bk()){ userState.signedIn=false; clearSession(); clearUserState(); bkSend(Backend.signOut().then(()=>Backend.signInWithGoogle())); return; } // fresh Google account chooser; backendBoot() lands returning members on their data
   if(!window.LABS_DEMO_OK){ alert('Sign-in isn’t configured on this deployment (missing Supabase config). See docs/GO_LIVE_DEV.md.'); return; }
   userState.signedIn=true; writeSession(); showView('dashboard'); } // demo (LABS_DEMO_OK only) → navigates to dashboard/
 function updateRoleBtn(){ const c=document.querySelectorAll('#role-options input:checked'); document.getElementById('role-continue-btn').disabled=c.length===0; document.querySelectorAll('#role-options .opt-card').forEach(x=>x.classList.toggle('selected',x.querySelector('input').checked)); }
@@ -1113,10 +1113,16 @@ function submitRoleIntent(){
   userState.roles=picked; userState.isMentor=picked.includes('mentor'); saveUserState(); startFlow('signup', ()=>showView('role-intent'));
 }
 function continueWithGoogle(){
-  // Already a member? Google recognizes the account — show what's on file and
-  // offer updates (owner decision) instead of re-running signup.
+  // Live mode: ALWAYS through Google's account chooser (owner decision) — never
+  // trust the local cache to decide who you are. The account you pick decides
+  // where you land: existing member → welcome-back, new → role intent.
+  if(bk()){
+    userState.signedIn=false; clearSession(); clearUserState();
+    bkSend(Backend.signOut().then(()=>Backend.signInWithGoogle()));
+    return;
+  }
+  // Demo (LABS_DEMO_OK): the cached account is all there is — welcome back.
   if(userState.signedIn){ showWelcomeBack(); return; }
-  if(bk()){ Backend.signInWithGoogle(); return; } // real OAuth — redirects to Google; backendBoot() resumes the funnel on return
   // LIVE MODE ONLY (owner decision): without a configured backend there is no
   // sign-in — say so honestly. window.LABS_DEMO_OK=true re-enables the demo
   // path (local dev + the automated test harnesses only).
