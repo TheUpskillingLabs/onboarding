@@ -315,7 +315,10 @@ button,input,select,textarea { font-family:inherit; }
 <script>LabsChrome.mountAppNav({rel:'', persona:'admin', into:'#persona-nav-slot'});</script>
 <script>
 /* Soft-redirect guard (click-through, not auth): this lens is chosen from the
-   avatar menu — plain members land back on the member app. */
+   avatar menu — plain members land back on the member app.
+   Direct door: admin.html?viewas=admin sets the lens and stays (owner ask —
+   the avatar-menu path was too hidden). Real gating is server-side in OLOS. */
+if(new URLSearchParams(location.search).get('viewas')==='admin'){ setViewAsRole('admin'); history.replaceState(null,'',location.pathname); }
 if(getViewAsRole()==='upskiller') location.replace('index.html');
 /* ── Admin mock data — lives in this file (established per-file duplication
    pattern). Only olos.cycleState.v1 + olos.viewAsRole.v1 cross file boundaries. ── */

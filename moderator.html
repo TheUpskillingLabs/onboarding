@@ -246,7 +246,9 @@ textarea.ps-input { resize:vertical; }
 <script>LabsChrome.mountAppNav({rel:'', persona:'poderator', into:'#persona-nav-slot'});</script>
 <script>
 /* Soft-redirect guard (click-through, not auth): this lens is chosen from the
-   avatar menu — plain members land back on the member app. */
+   avatar menu — plain members land back on the member app.
+   Direct door: moderator.html?viewas=poderator (see admin.html). */
+if(new URLSearchParams(location.search).get('viewas')==='poderator'){ setViewAsRole('poderator'); history.replaceState(null,'',location.pathname); }
 if(getViewAsRole()==='upskiller') location.replace('index.html');
 /* ── Poderator mock data — this file's own copy (established pattern).
    Sourced from Learning Log health checks (visible to Poderators + admins only)
