@@ -1105,8 +1105,9 @@ function submitRoleIntent(){
     // members leveling up and version bumps both get caught there.
     if(!nextRoleInQueue()){
       // No setup flows to run — the change (if any) is complete right here: receipt now.
+      const note=profileChangeNote;
       if(rolesChanged){ sendProfileUpdateEmail(profileChangeNote); profileChangeNote=''; }
-      showWelcomeBack();
+      showWelcomeBack(rolesChanged?('roles ('+note+')'):undefined);
     }
     return;
   }
@@ -1187,9 +1188,14 @@ function editSignupDetails(){
     linkedin:a.linkedin, hearAbout:a.hearAbout, referredBy:(userState.referral&&userState.referral.by)||'',
     keepPosted:userState.contactOptIn });
 }
-function showWelcomeBack(){
+function summaryStatus(){ return userState.cycleStatus==='interested'?'interested':!!userState.completed.cycle; }
+function showWelcomeBack(justChanged){
   document.getElementById('wb-greeting').textContent='Welcome back, '+(userState.name||'friend')+'.';
-  document.getElementById('wb-rows').innerHTML=signupSummaryRows(!!userState.completed.cycle)
+  // The just-made change shows right here (owner decision) — the member sees
+  // where they are, not just what's on file.
+  const n=document.getElementById('wb-note');
+  if(n){ if(justChanged){ n.textContent='Updated ✓ — '+justChanged; n.style.display='inline-block'; } else { n.style.display='none'; } }
+  document.getElementById('wb-rows').innerHTML=signupSummaryRows(summaryStatus())
     .map(r=>'<div style="display:flex;gap:16px;padding:12px 0;border-bottom:1px solid var(--rule);text-align:left;"><span class="lbl" style="width:130px;flex-shrink:0;padding-top:2px;">'+escHTML(r[0])+'</span><span class="t-small" style="flex:1;color:var(--charcoal);">'+escHTML(r[1])+'</span></div>').join('');
   showView('welcome-back');
 }
@@ -1229,7 +1235,7 @@ function FLOWS(name){
       if(bk()){ const a=userState.answers; bkSend(Backend[fans._edit?'updateDetails':'completeSignup']({
         intake:{ first:userState.name, last:(userState.fullName||'').split(' ').slice(1).join(' '), zip:a.zip, metroSlug:(userState.lab&&userState.lab.slug)||'', work:a.work, sector:a.sector, sectorOther:a.sectorOther, yearsExp:a.yearsExp, education:a.education, linkedin:a.linkedin, hearAbout:a.hearAbout, referredBy:(userState.referral&&userState.referral.by)||'' },
         roles:userState.roles, agreements:userState.agreements.map(g=>({doc:g.doc,version:g.version})), contactOptIn:userState.contactOptIn })); }
-      if(fans._edit){ sendProfileUpdateEmail('You updated your details'); showWelcomeBack(); return; } // returning member updating details — no re-onboarding; change receipt sent
+      if(fans._edit){ sendProfileUpdateEmail('You updated your details'); showWelcomeBack('your details'); return; } // returning member updating details — no re-onboarding; change receipt sent + shown
       if(pendingWaitlist||pendingWaitlistCreate){ gateReturnTo=null; showView('landing'); consumePendingWaitlist(); /* finish the committed join HERE (the pending city is in-memory — it can't survive a navigation) */ }
       else if(gateReturnTo){ const r=gateReturnTo; gateReturnTo=null; r(); }
       else if((userState.roles||[]).includes('cycle')){ startCycleRegistration(()=>showView('dashboard'), true); } /* the cycle pitch shows only when Join a Cycle was picked */
@@ -2184,7 +2190,8 @@ const CEREMONY_VIEWS_HTML = `
       <div class="container" style="max-width:520px;text-align:center;padding:48px 24px;">
         <div class="lbl lbl-teal" style="margin-bottom:18px;">You already have an account ✓</div>
         <h1 class="t-h1" style="margin-bottom:12px;" id="wb-greeting">Welcome back.</h1>
-        <p class="t-lede" style="margin-bottom:24px;">Here’s what we have on file. Update anything — or take on a new role.</p>
+        <p class="t-lede" style="margin-bottom:16px;">Here’s what we have on file. Update anything — or take on a new role.</p>
+        <span id="wb-note" class="status active" style="display:none;margin-bottom:20px;"></span>
         <div id="wb-rows" style="margin-bottom:24px;"></div>
         <button class="btn btn-red btn-lg btn-block" style="margin-bottom:12px;" onclick="showRoleUpdate()">Change how you take part →</button>
         <button class="btn btn-ghost-teal btn-block" style="margin-bottom:12px;" onclick="editSignupDetails()">Update your details</button>
