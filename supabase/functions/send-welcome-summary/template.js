@@ -28,7 +28,7 @@ export function welcomeSummaryHtml({ firstName, rows, kind = 'welcome', ctaUrl =
   const heading = isUpdate ? `Your profile changed, ${esc(firstName)}.` : `Welcome to The Labs, ${esc(firstName)}.`;
   const lede = isUpdate
     ? 'You made a change, so here’s the fresh copy of what’s on file. If this wasn’t you, reply to this email and we’ll look into it.'
-    : 'We’re glad you’re here. This is your copy of everything you signed up for, in one place. Keep it.';
+    : 'We’re glad you’re here. This is your copy of everything you signed up for.';
   const footerWhy = isUpdate
     ? 'You’re getting this because your Labs profile changed. It’s a receipt, not a subscription.'
     : 'You’re getting this one email because you created a Labs account. It’s a receipt, not a subscription.';
@@ -88,7 +88,7 @@ export function welcomeSummaryText({ firstName, rows, kind = 'welcome', ctaUrl =
 
 ${isUpdate
     ? 'You made a change, so here’s the fresh copy of what’s on file. If this wasn’t you, reply to this email and we’ll look into it.'
-    : 'We’re glad you’re here. This is your copy of everything you signed up for, in one place. Keep it.'}
+    : 'We’re glad you’re here. This is your copy of everything you signed up for.'}
 
 ${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}
 
