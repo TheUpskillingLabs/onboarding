@@ -527,7 +527,7 @@ const INTAKE={
   m5:{joined:'Jun 25', sector:'Prefer not to answer', yearsExp:'1–4 years', education:'Prefer not to answer', referral:'An event', optIn:false, docs:['participation','guidelines'], linkedin:''},
   m6:{joined:'Jun 28', sector:'Education', yearsExp:'20+ years', education:'Graduate degree', referral:'Invited · Labs team', optIn:true, docs:['participation','guidelines','mentor'], linkedin:'linkedin.com/in/aishakarim'}
 };
-const DOC_LABELS={participation:'Participation Agreement', guidelines:'Volunteer Guidelines', mentor:'Mentor Agreement'};
+const DOC_LABELS={participation:'Volunteer and Participation Agreement', guidelines:'Volunteer and Participation Guidelines', mentor:'Mentor Agreement'};
 function readLiveSignup(){
   let u=null,s=null;
   try{ u=JSON.parse(localStorage.getItem('olos.userState.v1')||'null'); }catch(e){}

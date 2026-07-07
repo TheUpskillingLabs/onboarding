@@ -17,9 +17,9 @@ const SRC = path.join(ROOT, 'docs', 'agreements');
 
 const DOCS = [
   { key: 'participation', file: 'The_Upskilling_Labs_Volunteer_Participant_Agreement.md',
-    title: 'The Volunteer Participation Agreement', version: 'vpa-2026-07-v1' },
+    title: 'The Volunteer and Participation Agreement', version: 'vpa-2026-07-v1' },
   { key: 'guidelines', file: 'The_Upskilling_Labs_Volunteer_Guidelines.md',
-    title: 'The Volunteer Guidelines', version: 'vg-2026-07-v1' },
+    title: 'The Volunteer and Participation Guidelines', version: 'vg-2026-07-v1' },
   { key: 'mentor', file: 'Volunteer Mentor Agreement.md',
     title: 'The Volunteer Mentor Agreement', version: 'vma-2026-07-v1' },
 ];
