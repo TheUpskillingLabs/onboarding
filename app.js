@@ -1077,7 +1077,10 @@ function openPhaseInfo(key){ const p=PHASE_INFO[key]; if(!p) return; document.ge
 function closePhaseInfo(){ document.getElementById('phase-info-modal').classList.remove('open'); }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closePodChooser(); closePhaseInfo(); closeWaitlist(); } });
 
-function signinReturning(){ userState.signedIn=true; writeSession(); showView('dashboard'); } // → navigates to dashboard/ (the real Home page)
+function signinReturning(){
+  if(bk()){ Backend.signInWithGoogle(); return; } // login = the same Google identity; backendBoot() lands returning members on their data
+  if(!window.LABS_DEMO_OK){ alert('Sign-in isn’t configured on this deployment (missing Supabase config). See docs/GO_LIVE_DEV.md.'); return; }
+  userState.signedIn=true; writeSession(); showView('dashboard'); } // demo (LABS_DEMO_OK only) → navigates to dashboard/
 function updateRoleBtn(){ const c=document.querySelectorAll('#role-options input:checked'); document.getElementById('role-continue-btn').disabled=c.length===0; document.querySelectorAll('#role-options .opt-card').forEach(x=>x.classList.toggle('selected',x.querySelector('input').checked)); }
 function submitRoleIntent(){
   const picked=[...document.querySelectorAll('#role-options input:checked')].map(c=>c.value);
@@ -1114,6 +1117,10 @@ function continueWithGoogle(){
   // offer updates (owner decision) instead of re-running signup.
   if(userState.signedIn){ showWelcomeBack(); return; }
   if(bk()){ Backend.signInWithGoogle(); return; } // real OAuth — redirects to Google; backendBoot() resumes the funnel on return
+  // LIVE MODE ONLY (owner decision): without a configured backend there is no
+  // sign-in — say so honestly. window.LABS_DEMO_OK=true re-enables the demo
+  // path (local dev + the automated test harnesses only).
+  if(!window.LABS_DEMO_OK){ alert('Sign-in isn’t configured on this deployment (missing Supabase config). See docs/GO_LIVE_DEV.md.'); return; }
   userState.signedIn=true; showView('role-intent');
 }
 /* ── Live-mode boot: consume the OAuth return, hydrate userState from the DB
