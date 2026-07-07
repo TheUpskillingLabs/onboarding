@@ -1097,11 +1097,9 @@ function submitRoleIntent(){
     userState.roles=picked; userState.isMentor=picked.includes('mentor'); saveUserState(); renderTodos();
     if(bk()&&rolesChanged) bkSend(Backend.syncRoles({roles:picked})); // role_intents + participant_roles revoke/insert
     roleQueue=added;
-    // Upgrading into a real role requires the documents (owner decision): anyone
-    // missing the Guidelines or Participation Agreement at their CURRENT versions
-    // signs them FIRST — this catches events-only members leveling up, and
-    // version bumps force a re-sign the same way.
-    if(added.length&&(!hasAgreed('guidelines')||!hasAgreed('participation'))){ startFlow('agreements', ()=>showWelcomeBack()); return; }
+    // Role questions run FIRST (intent), the agreements catch-up LAST (ceremony) —
+    // nextRoleInQueue() appends the paperwork after the queue drains. Events-only
+    // members leveling up and version bumps both get caught there.
     if(!nextRoleInQueue()){
       // No setup flows to run — the change (if any) is complete right here: receipt now.
       if(rolesChanged){ sendProfileUpdateEmail(profileChangeNote); profileChangeNote=''; }
@@ -1156,7 +1154,17 @@ async function backendBoot(){
 /* ── The returning-member branch: review what's on file, then update ── */
 let roleUpdateMode=false;
 let roleQueue=[]; // newly added roles awaiting their setup flows (update path)
-function nextRoleInQueue(){ const next=roleQueue.shift(); if(next){ startRoleFlow(next, ()=>showWelcomeBack(), true); return true; } return false; }
+function nextRoleInQueue(){
+  const next=roleQueue.shift();
+  if(next){ startRoleFlow(next, ()=>showWelcomeBack(), true); return true; }
+  // Queue drained — NOW the paperwork (ceremony after intent, owner decision:
+  // choose where you'll help first, sign after). Anyone holding a real role
+  // without the current documents signs them as the last beat before thanks.
+  if((userState.roles||[]).some(r=>r!=='events') && (!hasAgreed('guidelines')||!hasAgreed('participation'))){
+    startFlow('agreements', ()=>showWelcomeBack()); return true;
+  }
+  return false;
+}
 function showRoleUpdate(){ roleUpdateMode=true; document.querySelectorAll('#role-options input').forEach(i=>{ i.checked=(userState.roles||[]).includes(i.value); }); updateRoleBtn(); showView('role-intent'); }
 function editSignupDetails(){
   const parts=(userState.fullName||'').split(' '); const a=userState.answers||{};
