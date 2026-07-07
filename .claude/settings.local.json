@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(supabase functions *)",
+      "Bash(supabase secrets *)",
+      "Read(//Users/madhu/projects/olos/OLOS/supabase/**)",
+      "Read(//Users/madhu/projects/olos/OLOS/supabase/.temp/**)"
+    ]
+  }
+}

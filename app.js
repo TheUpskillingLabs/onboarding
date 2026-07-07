@@ -1168,7 +1168,7 @@ function nextRoleInQueue(){
 function showRoleUpdate(){ roleUpdateMode=true; document.querySelectorAll('#role-options input').forEach(i=>{ i.checked=(userState.roles||[]).includes(i.value); }); updateRoleBtn(); showView('role-intent'); }
 function editSignupDetails(){
   const parts=(userState.fullName||'').split(' '); const a=userState.answers||{};
-  startFlow('signup', ()=>showWelcomeBack(), { _edit:true,
+  startFlow('signup', ()=>showWelcomeBack(), { _edit:true, email:userState.email||'',
     first:userState.name||parts[0]||'', last:parts.slice(1).join(' '), zip:a.zip||'',
     work:a.work, sector:a.sector, sectorOther:a.sectorOther, yearsExp:a.yearsExp, education:a.education,
     linkedin:a.linkedin, hearAbout:a.hearAbout, referredBy:(userState.referral&&userState.referral.by)||'',
@@ -1206,6 +1206,7 @@ function FLOWS(name){
   if(name==='signup') return { eyebrow:'Your profile', finalLabel:eventsOnly()?'Sign me up':'Become an Upskiller', finalClass:'btn-red',
     onComplete:()=>{ const f=(fans.first||'Alex').trim()||'Alex'; userState.name=f; userState.fullName=f+' '+(fans.last||'Rivera'); userState.initials=(f[0]||'A').toUpperCase()+((fans.last||'R')[0]||'R').toUpperCase(); userState.signedIn=true; const z=String(fans.zip||''); const labKey=/^20[0-5]/.test(z)?'dc':/^21[0-2]/.test(z)?'baltimore':/^19[0-4]/.test(z)?'philadelphia':'dc'; userState.lab={...METROS[labKey]}; /* metro auto-assigned from zip — a waitlist metro drives the dashboard nudge */  userState.profileVisibility='labs'; /* members-only profiles — public tier deferred (see backend doc) */ userState.referral={source:fans.hearAbout||'', by:(fans.referredBy||'').trim()};
       // The intake answers — one object, mirrors the future participants row.
+      if(fans.email&&!(bk()&&userState.email)) userState.email=(fans.email||'').trim().toLowerCase(); /* demo: the typed address becomes the account email */
       userState.answers={...userState.answers, zip:String(fans.zip||''), work:fans.work||'', sector:fans.sector||'', sectorOther:(fans.sectorOther||'').trim(), yearsExp:fans.yearsExp||'', education:fans.education||'', linkedin:(fans.linkedin||'').trim(), hearAbout:fans.hearAbout||''};
       if(!eventsOnly()){ recordAgreement('participation'); recordAgreement('guidelines'); } userState.contactOptIn=!!fans.keepPosted;
       writeSession(); saveUserState();
@@ -1220,7 +1221,17 @@ function FLOWS(name){
       else if(gateReturnTo){ const r=gateReturnTo; gateReturnTo=null; r(); }
       else if((userState.roles||[]).includes('cycle')){ startCycleRegistration(()=>showView('dashboard'), true); } /* the cycle pitch shows only when Join a Cycle was picked */
       else { showThankYou(false); } /* volunteer / mentor / events signups stop right here — agreements done, thank you, that's it (owner decision) */ },
-    steps:[ {id:'email',type:'info',section:'About you',q:'Signing up as',help:eventsOnly()?'We pulled this from your Google account. Two quick questions and you’re done.':'We pulled this from your Google account. Eight quick questions, two short documents — about three minutes, all told.',render:'<div class="flow-emaillarge">'+escHTML(memberEmail())+'</div>'},
+    steps:[
+      // Live mode: the email IS the Google identity — shown, never edited here
+      // (email changes are super-admin only; owner decision).
+      {id:'emailInfo',type:'info',section:'About you',q:'Signing up as',help:eventsOnly()?'From your Google account. Two quick questions and you’re done.':'From your Google account. Eight quick questions, two short documents — about three minutes, all told.',render:'<div class="flow-emaillarge">'+escHTML(userState.email||'')+'</div>',when:()=>!!(bk()&&userState.email)},
+      // Demo mode: a real input (owner ask) — and if the email already has an
+      // account here, the check intercepts and hands them the welcome-back.
+      {id:'email',type:'text',section:'About you',q:'What’s your email?',help:(eventsOnly()?'Two quick questions and you’re done. ':'Eight quick questions, two short documents — about three minutes. ')+'Your welcome summary lands here.',ph:'you@example.com',required:true,inputmode:'email',pattern:/^[^@\s]+@[^@\s]+\.[^@\s]+$/,err:'Enter a valid email address (like you@example.com)',when:()=>!(bk()&&userState.email),
+        check:f=>{ const typed=(f.email||'').trim().toLowerCase(); if(!typed) return false;
+          try{ const u=JSON.parse(localStorage.getItem(USTATE_KEY)||'null'); const s=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');
+            if(u&&u.email&&String(u.email).toLowerCase()===typed&&s&&s.signedIn){ userState.signedIn=true; restoreSession(); showWelcomeBack(); return true; } }catch(e){}
+          return false; }},
       {id:'about',type:'fields',section:'About you',q:'Tell us who you are',help:'Your zip just finds the lab nearest you — nothing else.',fields:[
         {id:'first',label:'First name',ph:'Alex',required:true,half:true},
         {id:'last',label:'Last name',ph:'Rivera',required:true,half:true},
@@ -1375,7 +1386,7 @@ function renderFlowStep(){
   document.getElementById('flow-back').onclick=()=>{ const v=fVisible(); const p=v.indexOf(fstep); if(p>0){ fstep=v[p-1]; renderFlowStep(); } else { flow.backTo(); } };
   renderFlowInput(step); document.getElementById('flow-scroll').scrollTop=0;
 }
-function flowAdvance(){ const v=fVisible(); const p=v.indexOf(fstep); if(p<v.length-1){ fstep=v[p+1]; renderFlowStep(); } else { flow.onComplete(); } }
+function flowAdvance(){ const step=flow.steps[fstep]; if(step&&step.check&&step.check(fans)) return; /* step.check may intercept (e.g. email already has an account → welcome back) */ const v=fVisible(); const p=v.indexOf(fstep); if(p<v.length-1){ fstep=v[p+1]; renderFlowStep(); } else { flow.onComplete(); } }
 function renderFlowInput(step){
   const box=document.getElementById('flow-input'); box.innerHTML='';
   const actions=document.getElementById('flow-actions'); const _v=fVisible(); const isLast=_v.indexOf(fstep)===_v.length-1;
@@ -1388,8 +1399,10 @@ function renderFlowInput(step){
     if(tag==='input'){ el.type='text'; if(step.inputmode) el.setAttribute('inputmode',step.inputmode); }
     el.placeholder=step.ph||''; el.value=fans[step.id]||'';
     const w=document.createElement('div'); w.className='field'; w.appendChild(el); box.appendChild(w);
-    const valid=()=> step.required ? el.value.trim().length>0 : true;
-    el.addEventListener('input',()=>{ fans[step.id]=el.value; enable(valid()); });
+    let errEl=null;
+    if(step.pattern){ errEl=document.createElement('p'); errEl.className='t-small field-err'; errEl.style.cssText='color:var(--red);margin-top:6px;display:none;'; errEl.textContent=step.err||'Check this field'; w.appendChild(errEl); }
+    const valid=()=>{ const v=el.value.trim(); if(!v) return !step.required; return !step.pattern||step.pattern.test(v); };
+    el.addEventListener('input',()=>{ fans[step.id]=el.value; if(errEl) errEl.style.display=(el.value.trim()&&!valid())?'block':'none'; enable(valid()); });
     el.addEventListener('keydown',ev=>{ if(ev.key==='Enter'&&tag==='input'&&valid()){ ev.preventDefault(); flowAdvance(); } });
     setActions({enabled:valid(), skip:!step.required}); /* guarded autofocus — never steal focus from typing/autofill (F7) */ setTimeout(()=>{ const ae=document.activeElement; if(ae&&ae!==document.body&&box.contains(ae)) return; el.focus(); el.scrollIntoView({block:'center'}); },60); return;
   }
