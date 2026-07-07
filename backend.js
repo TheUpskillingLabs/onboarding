@@ -11,9 +11,16 @@
 (function(){
   const cfg = window.LABS_CONFIG || {};
   const hasLib = typeof window.supabase !== 'undefined' && window.supabase.createClient;
-  const on = !!(cfg.supabaseUrl && cfg.supabaseAnonKey && hasLib);
-  const client = on ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
-  const fnBase = on ? cfg.supabaseUrl.replace(/\/$/, '') + '/functions/v1/' : '';
+  // Normalize the URL (a missing scheme would make createClient throw).
+  let url = String(cfg.supabaseUrl || '').trim().replace(/\/$/, '');
+  if (url && !/^https?:\/\//.test(url)) url = 'https://' + url;
+  let on = !!(url && cfg.supabaseAnonKey && hasLib);
+  let client = null;
+  if (on) {
+    try { client = window.supabase.createClient(url, cfg.supabaseAnonKey); }
+    catch (e) { console.warn('backend disabled (bad config?):', e && e.message); on = false; }
+  }
+  const fnBase = on ? url + '/functions/v1/' : '';
 
   // The email hook app.js already honors — wire it to the deployed function.
   if (on && !window.WELCOME_EMAIL_ENDPOINT) {
