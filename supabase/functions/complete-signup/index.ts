@@ -130,6 +130,71 @@ Deno.serve(async (req) => {
   try {
     const p = await ensureParticipant(user);
 
+    /* ── Admin actions — gated by the CALLER's real role (active participant_roles
+       row: admin or owner; OWNER_EMAILS secret bootstraps the first owner).
+       Writes then use the service role; 00059 opened those paths for it. ── */
+    if (action.startsWith('admin_')) {
+      const OWNER_EMAILS = (Deno.env.get('OWNER_EMAILS') ?? '').toLowerCase().split(',').map((s) => s.trim()).filter(Boolean);
+      const myRoles = (await activeRoles(p.id)).map((r) => r.role);
+      const isOwner = myRoles.includes('owner') || OWNER_EMAILS.includes(norm(user.email).toLowerCase());
+      const isAdmin = isOwner || myRoles.includes('admin');
+      if (!isAdmin) return json(403, { error: 'admin only' });
+      const ALL_ROLES = ['upskiller', 'events', 'volunteer', 'mentor', 'poderator', 'admin', 'owner'];
+      const manageable = isOwner ? ALL_ROLES : ['upskiller', 'events', 'volunteer', 'mentor', 'poderator'];
+
+      if (action === 'admin_list') {
+        const { data: parts, error } = await admin.from('participants')
+          .select('id, email, first_name, last_name, created_at, created_via, sector, sector_other, years_experience, education_level, work_situation, linkedin, source, referred_by, zip, metro_slug, contact_consent')
+          .order('created_at', { ascending: false }).limit(500);
+        if (error) throw error;
+        const ids = (parts ?? []).map((x) => x.id);
+        const [{ data: roleRows }, { data: accRows }, { data: enrRows }] = await Promise.all([
+          admin.from('participant_roles').select('participant_id, role').is('revoked_at', null).in('participant_id', ids),
+          admin.from('agreement_acceptances').select('participant_id, doc, version, accepted_at').in('participant_id', ids),
+          admin.from('cycle_enrollments').select('participant_id, status').in('participant_id', ids),
+        ]);
+        return json(200, { participants: parts ?? [], roles: roleRows ?? [], acceptances: accRows ?? [], enrollments: enrRows ?? [], you: { participant_id: p.id, owner: isOwner } });
+      }
+
+      if (action === 'admin_set_roles') {
+        const target = Number(body.participant_id);
+        if (!target) return json(400, { error: 'participant_id required' });
+        const want = (Array.isArray(body.roles) ? (body.roles as string[]) : []).map((r) => String(r).toLowerCase()).filter((r) => ALL_ROLES.includes(r));
+        const have = (await activeRoles(target)).map((r) => r.role);
+        for (const r of have) {
+          if (manageable.includes(r) && !want.includes(r)) {
+            await admin.from('participant_roles').update({ revoked_at: new Date().toISOString(), revoked_by: p.id })
+              .eq('participant_id', target).eq('role', r).is('revoked_at', null);
+          }
+        }
+        const grants = want.filter((r) => manageable.includes(r) && !have.includes(r))
+          .map((role) => ({ participant_id: target, role, granted_by: p.id }));
+        if (grants.length) { const { error } = await admin.from('participant_roles').insert(grants); if (error && error.code !== '23505') throw error; }
+        return json(200, { ok: true });
+      }
+
+      if (action === 'admin_change_email') {
+        if (!isOwner) return json(403, { error: 'owner (super admin) only' });
+        const target = Number(body.participant_id); const email = norm(String(body.email)).toLowerCase();
+        if (!target || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json(400, { error: 'participant_id + valid email required' });
+        const { error } = await admin.rpc('change_participant_email', { target_id: target, new_email: email });
+        if (error) throw error;
+        return json(200, { ok: true });
+      }
+
+      if (action === 'admin_delete') {
+        if (!isOwner) return json(403, { error: 'owner (super admin) only' });
+        const target = Number(body.participant_id);
+        if (!target) return json(400, { error: 'participant_id required' });
+        if (target === p.id) return json(400, { error: 'you cannot delete yourself' });
+        const { error } = await admin.rpc('delete_participant', { target_id: target, why: 'admin:' + p.id + ':' + String(body.reason ?? 'admin_delete').slice(0, 60) });
+        if (error) throw error;
+        return json(200, { ok: true });
+      }
+
+      return json(400, { error: 'unknown admin action' });
+    }
+
     if (action === 'get_profile') {
       const roles = await activeRoles(p.id);
       const { data: acc } = await admin.from('agreement_acceptances')

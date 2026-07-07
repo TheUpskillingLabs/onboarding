@@ -66,6 +66,8 @@
     updateDetails(p){ return call('update_details', p); },
     syncRoles(p){ return call('update_roles', p); },
     cycleInterest(){ return call('cycle_interest'); },
-    recordAgreement(doc, version, source){ return call('record_agreement', { doc: doc, version: version, source: source }); }
+    recordAgreement(doc, version, source){ return call('record_agreement', { doc: doc, version: version, source: source }); },
+    /* Admin surface (admin.html) — server re-checks the caller's role on every call. */
+    admin(action, payload){ return call('admin_' + action, payload); }
   };
 })();

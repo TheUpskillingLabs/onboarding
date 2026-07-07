@@ -195,6 +195,7 @@ button,input,select,textarea { font-family:inherit; }
        of the mock roster; production: participants + agreement_acceptances queries. ═══ -->
   <div id="apanel-signups" class="apanel">
     <div class="section-head"><div><div class="lbl lbl-teal" style="margin-bottom:6px;">Signups</div><h2 class="t-h2">Who’s joining, and how</h2></div></div>
+    <p class="t-small" id="signup-db-note" style="margin:-12px 0 18px;color:var(--meta);">Loading…</p>
     <div id="signup-metrics" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;"></div>
     <div class="lcard tbl-wrap" style="padding:6px 12px 2px;margin-bottom:24px;">
       <table class="tbl" aria-label="Signups">
@@ -312,6 +313,9 @@ button,input,select,textarea { font-family:inherit; }
 
 <script src="shared.js"></script>
 <script src="chrome.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="backend.js"></script>
 <script>LabsChrome.mountAppNav({rel:'', persona:'admin', into:'#persona-nav-slot'});</script>
 <script>
 /* Soft-redirect guard (click-through, not auth): this lens is chosen from the
@@ -537,9 +541,49 @@ function readLiveSignup(){
     optIn:!!(u&&u.contactOptIn), agreements:(u&&u.agreements)||[], emails:(u&&u.emails)||[], live:true };
 }
 function signupRoster(){
+  if(DB_ROSTER) return DB_ROSTER; // live database mode — the real signups replace the demo roster entirely
   const rows=PEOPLE.filter(p=>p.id!=='you').map(p=>({ id:p.id, name:p.name, roles:p.roles, live:false, ...(INTAKE[p.id]||{}) }));
   const live=readLiveSignup(); if(live) rows.unshift(live);
   return rows;
+}
+
+/* ── Live database mode ──────────────────────────────────────────────────
+   With config.js filled and a signed-in admin (their participant_roles row —
+   or the OWNER_EMAILS function secret — says admin/owner), the Signups tab
+   reads the REAL participants from Supabase via the edge function's admin
+   actions. Everything renders through the same signupRoster() shape; without
+   config or a session, the demo roster keeps working untouched. ── */
+let DB_ROSTER=null, DB_OWNER=false;
+const ROLE_LABEL_DB={upskiller:'Upskiller',events:'Events',volunteer:'Volunteer',mentor:'Mentor',poderator:'Poderator',admin:'Admin',owner:'Owner'};
+function dbNote(msg, ok){ const el=document.getElementById('signup-db-note'); if(el){ el.textContent=msg; el.style.color=ok?'var(--teal-deep)':'var(--meta)'; } }
+async function loadDbSignups(){
+  if(!(window.Backend&&Backend.enabled)){ dbNote('Demo data — no backend configured (config.js).'); return; }
+  let user=null; try{ user=await Backend.init(); }catch(e){}
+  if(!user){ dbNote('Demo data — sign in on the member app (join/) first, then reload this page.'); return; }
+  try{
+    const d=await Backend.admin('list');
+    DB_OWNER=!!(d.you&&d.you.owner);
+    const rolesBy={}, accBy={}, enrBy={};
+    (d.roles||[]).forEach(r=>{ (rolesBy[r.participant_id]=rolesBy[r.participant_id]||[]).push(ROLE_LABEL_DB[r.role]||r.role); });
+    (d.acceptances||[]).forEach(a=>{ (accBy[a.participant_id]=accBy[a.participant_id]||[]).push({doc:a.doc, version:a.version, at:new Date(a.accepted_at).getTime()}); });
+    (d.enrollments||[]).forEach(e=>{ enrBy[e.participant_id]=e.status; });
+    DB_ROSTER=(d.participants||[]).map(x=>({
+      id:'db-'+x.id, dbId:x.id, db:true, live:false,
+      name:((x.first_name||'')+' '+(x.last_name||'')).trim()||x.email,
+      email:x.email,
+      joined:new Date(x.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}),
+      roles:rolesBy[x.id]||[], sector:x.sector||'—', sectorOther:x.sector_other||'',
+      yearsExp:x.years_experience||'—', education:x.education_level||'—', work:x.work_situation||'—',
+      zip:x.zip||'—', linkedin:x.linkedin||'', hearAbout:x.source||'—',
+      referral:(x.source||'—')+(x.referred_by?' · '+x.referred_by:''),
+      optIn:!!x.contact_consent, agreements:accBy[x.id]||[], enrollment:enrBy[x.id]||'',
+      createdVia:x.created_via||''
+    }));
+    renderSignups();
+    dbNote('Live from the database ✓ '+DB_ROSTER.length+' signup'+(DB_ROSTER.length===1?'':'s')+(DB_OWNER?' · you are super admin':''), true);
+  }catch(e){
+    dbNote('Demo data — live load failed: '+(e&&e.message||e));
+  }
 }
 function renderSignups(){
   const rows=signupRoster();
@@ -569,35 +613,44 @@ function rosterById(id){ return signupRoster().find(r=>r.id===id); }
 function openSignup(id){
   const r=rosterById(id); if(!r) return; sgSel=id;
   const row=(k,v)=>'<div style="display:flex;gap:14px;padding:9px 0;border-bottom:1px solid var(--rule);"><span class="lbl" style="width:120px;flex-shrink:0;padding-top:2px;">'+k+'</span><span class="t-small" style="flex:1;">'+(v||'—')+'</span></div>';
-  const docs=r.live
+  const docs=(r.live||r.db)
     ? (r.agreements||[]).map(g=>(DOC_LABELS[g.doc]||g.doc)+' · '+(g.version||'')+' · '+new Date(g.at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})).join('<br>')
     : (r.docs||[]).map(d=>DOC_LABELS[d]+' ✓').join('<br>');
   const email=r.live&&r.emails&&r.emails.length?('<b>'+r.emails[0].subject+'</b><br><span style="white-space:pre-line;">'+r.emails[0].body+'</span>'):'';
   const roleLabels=r.live?(r.roles||[]).map(x=>LIVE_ROLE_LABELS[x]||x):(r.roles||[]);
-  // Role editor — every role a chip; active = held. Live account: member roles
-  // toggle for real (writes olos.userState.v1); operational roles are managed
-  // via View-as in this prototype, so those chips are disabled for the live row.
+  // Role editor — every role a chip; active = held. DB rows: grants/revokes go
+  // through the edge function (server re-checks the caller); Admin/Owner chips
+  // need super admin. Demo live row: member roles only (View-as covers the rest).
   const roleChips=ROLE_SET.map(role=>{
     const on=roleLabels.includes(role);
-    const disabled=r.live&&!LIVE_ROLE_MAP[role];
-    return '<button class="chip'+(on?' active':'')+'"'+(disabled?' disabled title="Operational roles for the live account are a View-as lens in this prototype"':' onclick="toggleRoleFor(\''+r.id+'\',\''+role+'\')"')+'>'+role+(on?' ✓':'')+'</button>';
+    const disabled=r.db?((role==='Admin'||role==='Owner')&&!DB_OWNER):(r.live&&!LIVE_ROLE_MAP[role]);
+    return '<button class="chip'+(on?' active':'')+'"'+(disabled?' disabled title="Super admin (Owner) only"':' onclick="toggleRoleFor(\''+r.id+'\',\''+role+'\')"')+'>'+role+(on?' ✓':'')+'</button>';
   }).join('');
   const emailRow='<div style="display:flex;gap:14px;padding:9px 0;border-bottom:1px solid var(--rule);align-items:center;"><span class="lbl" style="width:120px;flex-shrink:0;">Email</span><span class="t-small" style="flex:1;">'+emailFor(r)+'</span>'
     +(isSuperAdmin()?'<button class="btn btn-ghost-teal btn-sm" onclick="openEmailChange(\''+r.id+'\')">Change…</button>':'<span class="t-small" style="color:var(--meta-soft);">members can’t change this</span>')+'</div>';
   document.getElementById('sg-title').textContent=r.name;
   document.getElementById('sg-body').innerHTML=
     row('Joined', r.joined)+emailRow+row('Roles', roleLabels.join(', '))
-    +(r.live?row('Work status', r.work)+row('Zip', r.zip):'')
+    +(r.db?row('Signed up via', r.createdVia)+row('Cycle', r.enrollment||'—'):'')
+    +((r.live||r.db)?row('Work status', r.work)+row('Zip', r.zip):'')
     +row('Sector', (r.sector||'—')+(r.sectorOther?' — '+r.sectorOther:''))+row('Experience', r.yearsExp)+row('Education', r.education)
     +row('LinkedIn', r.linkedin)+row('Heard via', r.hearAbout||r.referral)+row('Contact opt-in', r.optIn?'Yes — updates, newsletters, invites':'No — account-critical only')
     +row('Documents', docs||'—')
     +(email?'<div class="lbl lbl-teal" style="margin:16px 0 8px;">Welcome email (simulated outbox)</div><div class="t-small" style="background:var(--tint);border-radius:var(--r);padding:12px 14px;">'+email+'</div>':'')
     +'<div class="lbl lbl-teal" style="margin:16px 0 8px;">Roles</div><div style="display:flex;gap:8px;flex-wrap:wrap;">'+roleChips+'</div>'
-    +(isSuperAdmin()?'<div class="lbl" style="margin:20px 0 8px;color:var(--red);">Danger zone · super admin</div><button class="btn btn-sm" style="background:transparent;border:1px solid var(--red);color:var(--red);" onclick="openDeleteUser(\''+r.id+'\')">Delete this user…</button>':'');
+    +((r.db?DB_OWNER:isSuperAdmin())?'<div class="lbl" style="margin:20px 0 8px;color:var(--red);">Danger zone · super admin</div><button class="btn btn-sm" style="background:transparent;border:1px solid var(--red);color:var(--red);" onclick="openDeleteUser(\''+r.id+'\')">Delete this user…</button>':'');
   document.getElementById('sg-modal').classList.add('open');
 }
 function toggleRoleFor(id, role){
   const r=rosterById(id); if(!r) return;
+  if(r.db){
+    const want=(r.roles||[]).slice(); const i=want.indexOf(role); if(i>=0) want.splice(i,1); else want.push(role);
+    dbNote('Saving role change…');
+    Backend.admin('set_roles',{participant_id:r.dbId, roles:want.map(x=>x.toLowerCase())})
+      .then(()=>loadDbSignups()).then(()=>openSignup(id))
+      .catch(e=>dbNote('Role change failed: '+(e&&e.message||e)));
+    return;
+  }
   if(r.live){
     const raw=LIVE_ROLE_MAP[role]; if(!raw) return;
     try{ const u=JSON.parse(localStorage.getItem('olos.userState.v1')||'null'); if(!u) return;
@@ -623,14 +676,30 @@ function openEmailChange(id){ if(!isSuperAdmin()) return; const r=rosterById(id)
 function closeEmailChange(){ document.getElementById('em-modal').classList.remove('open'); emailTarget=null; }
 function confirmEmailChange(){ const v=document.getElementById('em-input').value.trim();
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){ document.getElementById('em-input').focus(); return; }
-  const id=emailTarget; EMAIL_OVERRIDES[id]=v; closeEmailChange(); renderSignups(); if(id) openSignup(id); }
+  const id=emailTarget; const r=rosterById(id);
+  if(r&&r.db){
+    closeEmailChange(); dbNote('Changing email…');
+    Backend.admin('change_email',{participant_id:r.dbId, email:v})
+      .then(()=>loadDbSignups()).then(()=>openSignup(id))
+      .catch(e=>dbNote('Email change failed: '+(e&&e.message||e)));
+    return;
+  }
+  EMAIL_OVERRIDES[id]=v; closeEmailChange(); renderSignups(); if(id) openSignup(id); }
 let delTarget=null;
-function openDeleteUser(id){ const r=rosterById(id); if(!r||!isSuperAdmin()) return; delTarget=id;
+function openDeleteUser(id){ const r=rosterById(id); if(!r||!(r.db?DB_OWNER:isSuperAdmin())) return; delTarget=id;
   document.getElementById('del-name').textContent=r.name;
   document.getElementById('del-modal').classList.add('open'); }
 function closeDeleteUser(){ document.getElementById('del-modal').classList.remove('open'); delTarget=null; }
 function confirmDeleteUser(){
   const id=delTarget; closeDeleteUser(); closeSignup(); if(!id) return;
+  const r=rosterById(id);
+  if(r&&r.db){
+    dbNote('Deleting user and everything attached…');
+    Backend.admin('delete',{participant_id:r.dbId})
+      .then(()=>loadDbSignups())
+      .catch(e=>dbNote('Delete failed: '+(e&&e.message||e)));
+    return;
+  }
   if(id==='live'){ try{ localStorage.removeItem('olos.userState.v1'); localStorage.removeItem('olos.session.v1'); }catch(e){} }
   else { const i=PEOPLE.findIndex(p=>p.id===id); if(i>=0) PEOPLE.splice(i,1); delete INTAKE[id]; }
   renderSignups(); renderPeople();
@@ -673,6 +742,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeFeedback(); }
   if(st.logDueAt) logDueAt=st.logDueAt;
   if(['tallied','registration','closed'].includes(PHASES[phaseIdx])&&!projects.length) runTally();
   renderPhaseRail(); renderTallyOut(); renderLogGate(); renderCycleControl(); renderVotes(); renderInviteChips(); renderInvites(); renderPeople(); renderSignups();
+  loadDbSignups(); // live database mode when config + an admin session exist; demo data otherwise
 })();
 window.addEventListener('storage', e=>{ if(e.key==='olos.userState.v1'||e.key==='olos.session.v1') renderSignups(); }); // the live signup row updates as onboarding happens in another tab
 window.addEventListener('storage', e=>{ if(e.key===CYCLE_STATE_KEY){ const st=readCycleState(); const i=PHASES.indexOf(st.formationPhase||'submission'); phaseIdx=i<0?0:i; if(Array.isArray(st.projects)) projects=st.projects; logDueAt=st.logDueAt||null; renderPhaseRail(); renderTallyOut(); renderLogGate(); } });
