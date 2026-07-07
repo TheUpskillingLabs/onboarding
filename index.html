@@ -233,6 +233,9 @@
 <script src="pods/data.js"></script>
 <script src="projects/data.js"></script>
 <script src="people/data.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="backend.js"></script>
 <script src="agreements.js"></script>
 <script src="app.js"></script>
 <script>
@@ -241,7 +244,8 @@
 document.addEventListener('DOMContentLoaded',()=>{
   injectCeremonies(); // ceremony views + shared modals (single source in app.js)
   LabsChrome.mountPublicNav({rel:'', into:'#landing-nav-slot', overHero:true, onLogin:signinReturning, onJoin:startCreateAccount, onHome:()=>goApp('dashboard')});
-  restoreSession(); renderLandingStories(); renderLandingSituations(); renderLandingEvents(); renderLandingLibrary(); renderLandingLabs(); initEventCats(); applyCycleState(); buildWeekRail(); renderActivity(); renderLearningLog(); initHeroScroll(); enhanceTappables();
+  restoreSession();
+  backendBoot(); // live mode only: consume the OAuth return, hydrate from the DB, resume the funnel (no-op in demo mode) renderLandingStories(); renderLandingSituations(); renderLandingEvents(); renderLandingLibrary(); renderLandingLabs(); initEventCats(); applyCycleState(); buildWeekRail(); renderActivity(); renderLearningLog(); initHeroScroll(); enhanceTappables();
   const qs=new URLSearchParams(location.search);
   // Shared survey links (?survey=...) deep-link straight into the fill flow — no account needed.
   if(qs.get('survey')){ startFlow('survey', ()=>showView('landing')); }

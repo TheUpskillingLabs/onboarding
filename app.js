@@ -8,7 +8,13 @@
    dev team splits it into Next.js routes (docs/HANDOFF.md §7).
    Load order: shared.js → the seven data.js files → chrome.js → app.js → the
    page's inline boot → search.js. */
-const userState = {name:'Alex', initials:'AR', roles:[], isMentor:false, signedIn:false, completed:{}, profileAnswers:{}, mentorAnswers:{}, volunteerAnswers:{}, saved:[], lab:{name:'',status:''}, waitlists:[], updates:[], learningLogs:[], mentorRequests:[], testimonials:[], testimonialRequests:[], following:[], ballot:null, projectId:null, nominations:[], answers:{}, agreements:[], contactOptIn:false, emails:[]};
+const userState = {name:'Alex', initials:'AR', roles:[], isMentor:false, signedIn:false, completed:{}, profileAnswers:{}, mentorAnswers:{}, volunteerAnswers:{}, saved:[], lab:{name:'',status:''}, waitlists:[], updates:[], learningLogs:[], mentorRequests:[], testimonials:[], testimonialRequests:[], following:[], ballot:null, projectId:null, nominations:[], answers:{}, agreements:[], contactOptIn:false, emails:[], email:''};
+function memberEmail(){ return userState.email||'alex.rivera@gmail.com'; } // the real signed-in address in live mode; the demo persona otherwise
+/* Backend guard — true only when config.js + supabase-js + a session made the
+   bridge live (see backend.js). Every backend call in this file is wrapped in
+   bk() so DEMO MODE stays byte-for-byte the old behavior. */
+function bk(){ return typeof window!=='undefined'&&window.Backend&&window.Backend.enabled; }
+function bkSend(promise){ if(promise&&promise.catch) promise.catch(e=>console.warn('backend sync failed (demo state kept):', e&&e.message)); }
 /* Agreement acceptances — one {doc, version, at} row per signed document
    (production: agreement_acceptances). hasAgreed checks the CURRENT version,
    so a version bump re-presents the document on the next signup/update pass. */
@@ -946,6 +952,7 @@ function beginCycleRegistration(){
   // (concierge/email follow-up in production). FLOWS('cycle') is retained but
   // unreferenced from registration.
   userState.cycleStatus='interested'; saveUserState(); renderTodos();
+  if(bk()) bkSend(Backend.cycleInterest()); // cycle_enrollments row, status 'interested'
   if(nextRoleInQueue()) return; // more added roles waiting — their flows first, thank-you last
   showThankYou('interested');
 }
@@ -996,7 +1003,7 @@ function showCycleSigned(chosePod){
 function signupSummaryRows(registered){
   const A=window.AGREEMENTS||{};
   const rows=[
-    ['Your account', (userState.fullName||'')+' · alex.rivera@gmail.com · '+((userState.lab&&userState.lab.name)||'The Labs')],
+    ['Your account', (userState.fullName||'')+' · '+memberEmail()+' · '+((userState.lab&&userState.lab.name)||'The Labs')],
     ['How you want to take part', (userState.roles&&userState.roles.length?userState.roles.map(r=>({cycle:'Build Cycle',events:'Events & workshops',volunteer:'Volunteer',mentor:'Mentor'}[r]||r)).join(' · '):'Exploring for now')],
     ['What you signed', userState.agreements.map(g=>((A[g.doc]&&A[g.doc].title)||g.doc)+' ('+new Date(g.at).toLocaleDateString('en-US',{month:'short',day:'numeric'})+')').join(' · ')||'—'],
     ['Build Cycle', registered==='interested'?'You’re in — we’ll email you the next step to complete registration':registered?'Registered — Civics & Elections · Kickoff July 14':'Not this cycle — the door stays open'],
@@ -1011,13 +1018,13 @@ function signupSummaryRows(registered){
    Function (the separate email path; see supabase/functions/) when
    window.WELCOME_EMAIL_ENDPOINT is set — fire-and-forget, never blocking. */
 function dispatchSummaryEmail(kind, rows, changed){
-  userState.emails.push({ kind:kind, to:'alex.rivera@gmail.com',
+  userState.emails.push({ kind:kind, to:memberEmail(),
     subject:kind==='update'?'Your Upskilling Labs profile changed: here’s what’s on file now':'Welcome to The Upskilling Labs: here’s what you signed up for',
     body:(changed?('What changed: '+changed+'\n'):'')+rows.map(r=>r[0]+': '+r[1]).join('\n'), at:Date.now() });
   saveUserState(); // the outbox record (admin → Signups shows it)
   if(window.WELCOME_EMAIL_ENDPOINT){
     try{ fetch(window.WELCOME_EMAIL_ENDPOINT,{ method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ to:'alex.rivera@gmail.com', firstName:userState.name||'friend', kind:kind,
+      body:JSON.stringify({ to:memberEmail(), firstName:userState.name||'friend', kind:kind,
         rows:(changed?[['What changed',changed]]:[]).concat(rows) }) }).catch(()=>{}); }catch(e){}
   }
 }
@@ -1034,6 +1041,8 @@ function sendProfileUpdateEmail(changed){ dispatchSummaryEmail('update', signupS
 function showThankYou(registered){
   sendWelcomeEmail(registered);
   document.getElementById('ty-rows').innerHTML=signupSummaryRows(registered).map(r=>'<div style="display:flex;gap:16px;padding:12px 0;border-bottom:1px solid var(--rule);text-align:left;"><span class="lbl" style="width:130px;flex-shrink:0;padding-top:2px;">'+escHTML(r[0])+'</span><span class="t-small" style="flex:1;color:var(--charcoal);">'+escHTML(r[1])+'</span></div>').join('');
+  const te=document.getElementById('ty-email'); if(te) te.textContent=memberEmail();
+  const sn=document.getElementById('ty-simnote'); if(sn) sn.style.display=window.WELCOME_EMAIL_ENDPOINT?'none':'inline'; // real sends drop the "simulated" note
   renderTodos(); showView('thankyou');
 }
 /* Onboarding never exits into the member portal (owner decision) — the thank-you
@@ -1086,6 +1095,7 @@ function submitRoleIntent(){
     const rolesChanged=gained.length||dropped.length;
     profileChangeNote=rolesChanged?[gained.length?'Added: '+gained.join(', '):'',dropped.length?'Removed: '+dropped.join(', '):''].filter(Boolean).join(' · '):'';
     userState.roles=picked; userState.isMentor=picked.includes('mentor'); saveUserState(); renderTodos();
+    if(bk()&&rolesChanged) bkSend(Backend.syncRoles({roles:picked})); // role_intents + participant_roles revoke/insert
     roleQueue=added;
     // Upgrading into a real role requires the documents (owner decision): anyone
     // missing the Guidelines or Participation Agreement at their CURRENT versions
@@ -1105,7 +1115,43 @@ function continueWithGoogle(){
   // Already a member? Google recognizes the account — show what's on file and
   // offer updates (owner decision) instead of re-running signup.
   if(userState.signedIn){ showWelcomeBack(); return; }
+  if(bk()){ Backend.signInWithGoogle(); return; } // real OAuth — redirects to Google; backendBoot() resumes the funnel on return
   userState.signedIn=true; showView('role-intent');
+}
+/* ── Live-mode boot: consume the OAuth return, hydrate userState from the DB
+   (via get_profile), and resume the funnel. Called from index/join boots;
+   no-ops entirely in demo mode. ── */
+async function backendBoot(){
+  if(!bk()) return false;
+  let user=null; try{ user=await Backend.init(); }catch(e){ console.warn('backend init failed', e); return false; }
+  if(!user) return false;
+  userState.email=user.email||'';
+  try{
+    const prof=await Backend.profile();
+    const p=prof&&prof.participant;
+    if(p){
+      userState.signedIn=true;
+      userState.name=p.first_name||userState.name;
+      userState.fullName=((p.first_name||'')+' '+(p.last_name||'')).trim()||userState.fullName;
+      userState.initials=((p.first_name||'A')[0]+(p.last_name||'R')[0]).toUpperCase();
+      // roles: DB names → the app's raw keys ('upskiller' → 'cycle')
+      const dbRoles=(prof.roles||[]).map(r=>r.role);
+      userState.roles=(p.role_intents&&p.role_intents.length)?p.role_intents:dbRoles.map(r=>r==='upskiller'?'cycle':r).filter(r=>['cycle','events','volunteer','mentor'].includes(r));
+      userState.isMentor=dbRoles.includes('mentor');
+      userState.agreements=(prof.acceptances||[]).map(a=>({doc:a.doc, version:a.version, at:new Date(a.accepted_at).getTime()}));
+      if(userState.agreements.some(a=>a.doc==='mentor')) userState.completed.mentor=true;
+      userState.contactOptIn=!!p.contact_consent;
+      userState.answers={...userState.answers, zip:p.zip||'', work:p.work_situation||'', sector:p.sector||'', sectorOther:p.sector_other||'', yearsExp:p.years_experience||'', education:p.education_level||'', linkedin:p.linkedin||'', hearAbout:p.source||''};
+      if((prof.enrollments||[]).some(e=>e.status==='interested')) userState.cycleStatus='interested';
+      if((prof.enrollments||[]).some(e=>e.status==='active')) userState.completed.cycle=true;
+      if(p.metro_slug&&typeof METROS!=='undefined'&&METROS[p.metro_slug]) userState.lab={...METROS[p.metro_slug]};
+      writeSession(); saveUserState();
+      if(Backend.joinIntent()){ Backend.clearJoinIntent(); const hasIntake=!!(p.zip||p.work_situation); hasIntake?showWelcomeBack():showView('role-intent'); }
+    } else if(Backend.joinIntent()){
+      Backend.clearJoinIntent(); userState.signedIn=true; showView('role-intent');
+    }
+  }catch(e){ console.warn('profile load failed', e); if(Backend.joinIntent()){ Backend.clearJoinIntent(); userState.signedIn=true; showView('role-intent'); } }
+  return true;
 }
 /* ── The returning-member branch: review what's on file, then update ── */
 let roleUpdateMode=false;
@@ -1155,12 +1201,18 @@ function FLOWS(name){
       userState.answers={...userState.answers, zip:String(fans.zip||''), work:fans.work||'', sector:fans.sector||'', sectorOther:(fans.sectorOther||'').trim(), yearsExp:fans.yearsExp||'', education:fans.education||'', linkedin:(fans.linkedin||'').trim(), hearAbout:fans.hearAbout||''};
       if(!eventsOnly()){ recordAgreement('participation'); recordAgreement('guidelines'); } userState.contactOptIn=!!fans.keepPosted;
       writeSession(); saveUserState();
+      // Live mode: ONE server call carries the whole signup (intake + roles +
+      // acceptances + consent) — the edge function normalizes values and writes
+      // with the service role. Fire-and-forget; local state is already source-of-truth for the UI.
+      if(bk()){ const a=userState.answers; bkSend(Backend[fans._edit?'updateDetails':'completeSignup']({
+        intake:{ first:userState.name, last:(userState.fullName||'').split(' ').slice(1).join(' '), zip:a.zip, metroSlug:(userState.lab&&userState.lab.slug)||'', work:a.work, sector:a.sector, sectorOther:a.sectorOther, yearsExp:a.yearsExp, education:a.education, linkedin:a.linkedin, hearAbout:a.hearAbout, referredBy:(userState.referral&&userState.referral.by)||'' },
+        roles:userState.roles, agreements:userState.agreements.map(g=>({doc:g.doc,version:g.version})), contactOptIn:userState.contactOptIn })); }
       if(fans._edit){ sendProfileUpdateEmail('You updated your details'); showWelcomeBack(); return; } // returning member updating details — no re-onboarding; change receipt sent
       if(pendingWaitlist||pendingWaitlistCreate){ gateReturnTo=null; showView('landing'); consumePendingWaitlist(); /* finish the committed join HERE (the pending city is in-memory — it can't survive a navigation) */ }
       else if(gateReturnTo){ const r=gateReturnTo; gateReturnTo=null; r(); }
       else if((userState.roles||[]).includes('cycle')){ startCycleRegistration(()=>showView('dashboard'), true); } /* the cycle pitch shows only when Join a Cycle was picked */
       else { showThankYou(false); } /* volunteer / mentor / events signups stop right here — agreements done, thank you, that's it (owner decision) */ },
-    steps:[ {id:'email',type:'info',section:'About you',q:'Signing up as',help:eventsOnly()?'We pulled this from your Google account. Two quick questions and you’re done.':'We pulled this from your Google account. Eight quick questions, two short documents — about three minutes, all told.',render:'<div class="flow-emaillarge">alex.rivera@gmail.com</div>'},
+    steps:[ {id:'email',type:'info',section:'About you',q:'Signing up as',help:eventsOnly()?'We pulled this from your Google account. Two quick questions and you’re done.':'We pulled this from your Google account. Eight quick questions, two short documents — about three minutes, all told.',render:'<div class="flow-emaillarge">'+escHTML(memberEmail())+'</div>'},
       {id:'about',type:'fields',section:'About you',q:'Tell us who you are',help:'Your zip just finds the lab nearest you — nothing else.',fields:[
         {id:'first',label:'First name',ph:'Alex',required:true,half:true},
         {id:'last',label:'Last name',ph:'Rivera',required:true,half:true},
@@ -1184,6 +1236,7 @@ function FLOWS(name){
     // requires documents they haven't accepted at the current versions
     // (events-only members leveling up; anyone after a version bump).
     onComplete:()=>{ recordAgreement('guidelines'); recordAgreement('participation'); saveUserState();
+      if(bk()){ const A=window.AGREEMENTS||{}; bkSend(Backend.recordAgreement('guidelines',(A.guidelines&&A.guidelines.version)||'v1','welcome_back')); bkSend(Backend.recordAgreement('participation',(A.participation&&A.participation.version)||'v1','welcome_back')); }
       if(!nextRoleInQueue()) showThankYou(userState.cycleStatus==='interested'?'interested':!!userState.completed.cycle); },
     steps:[ {id:'agreeGuidelines',type:'consent',section:'1 of 2',q:'The Volunteer Guidelines',help:'Taking on a role at The Labs starts with the documents — read it to the end.',agreementTitle:'The Volunteer Guidelines',agreementHTML:(window.AGREEMENTS&&window.AGREEMENTS.guidelines.html)||'',text:'I have read and agree to the Volunteer Guidelines.',when:()=>!hasAgreed('guidelines')},
       {id:'agreeParticipation',type:'consent',section:'2 of 2',q:'The Participation Agreement',help:'This is the deal between you and The Labs — read it to the end.',agreementTitle:'The Volunteer Participation Agreement',agreementHTML:(window.AGREEMENTS&&window.AGREEMENTS.participation.html)||'',text:'I have read and agree to the Volunteer Participation Agreement.',when:()=>!hasAgreed('participation')} ]};
@@ -1246,7 +1299,7 @@ function FLOWS(name){
           {title:'I’ll check in every week.', body:'Five minutes, once a week. If I skip it, the app pauses until I catch up. If life gets in the way, I’ll tell my Poderator instead of going quiet.'},
           {title:'Our project is open source.', body:'What we build is an open-source community project — MIT for code, CC BY 4.0 for everything else, with everyone who worked on it credited. Once the cycle ends, I’m free to do whatever I want with it, and so is anyone else.'}
         ]} ]};
-  if(name==='mentor') return { eyebrow:'Mentor profile', finalLabel:'Publish mentor profile', finalClass:'btn-teal', onComplete:()=>{ recordAgreement('mentor'); finishRoleFlow('mentor'); if(nextRoleInQueue()) return; showThankYou(userState.cycleStatus==='interested'?'interested':!!userState.completed.cycle); /* mentor publish closes on the thank-you (owner decision) */ },
+  if(name==='mentor') return { eyebrow:'Mentor profile', finalLabel:'Publish mentor profile', finalClass:'btn-teal', onComplete:()=>{ recordAgreement('mentor'); if(bk()){ const A=window.AGREEMENTS||{}; bkSend(Backend.recordAgreement('mentor',(A.mentor&&A.mentor.version)||'v1','mentor_flow')); } finishRoleFlow('mentor'); if(nextRoleInQueue()) return; showThankYou(userState.cycleStatus==='interested'?'interested':!!userState.completed.cycle); /* mentor publish closes on the thank-you (owner decision) */ },
     steps:[ {id:'expertise',type:'tags',q:'What do you bring?',help:'Pick the areas where you can help — everything here shows on your mentor profile — visible to all Labs members — which is how upskillers and project teams find you.',options:EXPERTISE,required:true},
       {id:'engage',type:'checks',q:'How would you like to engage?',help:'Select all that work for you.',options:ENGAGE,required:true},
       {id:'pods',type:'textarea',q:'Who have you mentored, and how?',help:'Tell us where, when, and how you\u2019ve mentored — inside or outside The Labs. No names needed.',ph:'e.g. 3 pods in the Civic AI cycle — weekly office hours on scoping and shipping.',required:true},
@@ -1804,7 +1857,7 @@ function renderVolunteerSection(){
   if(hours)h+='<span class="t-small" style="color:var(--meta);">'+hours+'</span>';
   h+='</div>'; c.innerHTML=h;
 }
-function logout(){ userState.signedIn=false; clearSession(); clearUserState(); showView('landing'); }
+function logout(){ userState.signedIn=false; clearSession(); clearUserState(); if(bk()) bkSend(Backend.signOut()); showView('landing'); }
 // Landing chrome reflects auth state: signed-in shows an avatar + Dashboard, hides Log in / Join.
 /* Public accountability strip (UX_FINDINGS F3): the problems this cycle is
    investigating, with "Brought by" attribution visible to partners BEFORE any
@@ -1884,13 +1937,13 @@ function saveUserState(){ if(!userState.signedIn) return; try{ localStorage.setI
   testimonials:userState.testimonials, testimonialRequests:userState.testimonialRequests,
   profileAnswers:userState.profileAnswers, mentorAnswers:userState.mentorAnswers, volunteerAnswers:userState.volunteerAnswers,
   profileVisibility:userState.profileVisibility||'', referral:userState.referral||null,
-  answers:userState.answers||{}, agreements:userState.agreements||[], contactOptIn:!!userState.contactOptIn, emails:userState.emails||[],
+  answers:userState.answers||{}, agreements:userState.agreements||[], contactOptIn:!!userState.contactOptIn, emails:userState.emails||[], email:userState.email||'',
   checklist:userState.checklist||[], dismissedTodos:[...dismissedTodos], at:Date.now()})); }catch(e){} }
 function clearUserState(){ try{ localStorage.removeItem(USTATE_KEY); }catch(e){} }
 function readUserState(){
   let u=null; try{ u=JSON.parse(localStorage.getItem(USTATE_KEY)||'null'); }catch(e){}
   if(!u||u.v!==1||!userState.signedIn) return;
-  ['completed','roles','isMentor','learningLogs','saved','following','updates','cycleAgreement','cycleStatus','stepBackNote','ballot','projectId','pod','nominations','mentorRequests','testimonials','testimonialRequests','profileAnswers','mentorAnswers','volunteerAnswers','profileVisibility','referral','checklist','answers','agreements','contactOptIn','emails'].forEach(k=>{ if(u[k]!==undefined&&u[k]!==null) userState[k]=u[k]; });
+  ['completed','roles','isMentor','learningLogs','saved','following','updates','cycleAgreement','cycleStatus','stepBackNote','ballot','projectId','pod','nominations','mentorRequests','testimonials','testimonialRequests','profileAnswers','mentorAnswers','volunteerAnswers','profileVisibility','referral','checklist','answers','agreements','contactOptIn','emails','email'].forEach(k=>{ if(u[k]!==undefined&&u[k]!==null) userState[k]=u[k]; });
   (u.dismissedTodos||[]).forEach(id=>dismissedTodos.add(id));
   if(userState.pod) CYCLE.pod=userState.pod;
 }
@@ -2114,7 +2167,7 @@ const CEREMONY_VIEWS_HTML = `
         <h1 class="t-h1" style="margin-bottom:12px;">Thank you — welcome to The Labs.</h1>
         <p class="t-lede" style="margin-bottom:24px;">Here’s everything you signed up for, in one place.</p>
         <div id="ty-rows" style="margin-bottom:20px;"></div>
-        <p class="t-small" style="color:var(--meta);margin-bottom:28px;">We’ve emailed this summary to alex.rivera@gmail.com, with your documents and dates. <span style="color:var(--meta-soft);">(Simulated in this prototype.)</span></p>
+        <p class="t-small" style="color:var(--meta);margin-bottom:28px;">We’ve emailed this summary to <span id="ty-email">you</span>, with your documents and dates.<span id="ty-simnote" style="color:var(--meta-soft);"> (Simulated in this prototype.)</span></p>
         <button class="btn btn-teal btn-lg btn-block" onclick="closeOnboarding()">Done</button>
       </div>
     </div>

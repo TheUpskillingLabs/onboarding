@@ -74,6 +74,9 @@
 <script src="../pods/data.js"></script>
 <script src="../projects/data.js"></script>
 <script src="../people/data.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../config.js"></script>
+<script src="../backend.js"></script>
 <script src="../agreements.js"></script>
 <script src="../app.js"></script>
 <script>
@@ -85,7 +88,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   window.JOIN_RETURN=(ret&&/^https?:\/\//.test(ret))?ret:'https://theupskillinglabs.org';
   injectCeremonies();          // the flow view, agreements, threshold, thank-you, welcome-back — single source in app.js
   restoreSession();
-  if(userState.signedIn){ showWelcomeBack(); } // already a member → review + update, never re-onboard
+  // Live mode: consume the OAuth return and resume from the DB profile;
+  // demo mode: local session decides. backendBoot() returns false in demo.
+  backendBoot().then(live=>{ if(!live && userState.signedIn){ showWelcomeBack(); } });
 });
 </script>
 </body>
