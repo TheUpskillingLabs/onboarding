@@ -57,7 +57,7 @@ main { max-width:1080px; margin:0 auto; padding:36px var(--pad) 72px; }
 
   <div id="admin-live" style="display:none;">
     <div id="signup-metrics" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;"></div>
-    <div id="signup-filters" style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;"></div>
+    <div id="signup-filters" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:18px;"></div>
     <div class="lcard tbl-wrap" style="padding:6px 12px 2px;margin-bottom:16px;">
       <table class="tbl" aria-label="Signups">
         <thead><tr><th>Name</th><th>Email</th><th>Joined</th><th>Roles</th><th>Sector</th><th>Cycle</th><th>Docs</th><th>Contact</th></tr></thead>
@@ -157,12 +157,16 @@ const FILTER_DEFS=[
   { key:'contact', label:'Contact', options:['All','Opted in','No'] },
 ];
 function setFilter(key,val){ FILTERS[key]=val; render(); }
+function clearFilters(){ FILTER_DEFS.forEach(f=>FILTERS[f.key]=f.options[0]); render(); }
 function renderFilters(){
+  const anyActive=FILTER_DEFS.some(f=>FILTERS[f.key]!==f.options[0]);
   document.getElementById('signup-filters').innerHTML=FILTER_DEFS.map(f=>
-    '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-    +'<span class="lbl" style="width:64px;flex-shrink:0;">'+f.label+'</span>'
-    +f.options.map(o=>'<button class="chip'+(FILTERS[f.key]===o?' active':'')+'" style="font-size:12px;" onclick="setFilter(\''+f.key+'\',\''+o+'\')">'+o+'</button>').join('')
-    +'</div>').join('');
+    '<label style="display:flex;flex-direction:column;gap:4px;">'
+    +'<span class="lbl">'+f.label+'</span>'
+    +'<select onchange="setFilter(\''+f.key+'\', this.value)" style="font:inherit;font-size:14px;padding:8px 32px 8px 12px;border:1px solid var(--rule);border-radius:var(--r);background:var(--white);color:var(--charcoal);appearance:auto;'+(FILTERS[f.key]!==f.options[0]?'border-color:var(--teal);box-shadow:inset 0 0 0 1px var(--teal);':'')+'">'
+    +f.options.map(o=>'<option'+(FILTERS[f.key]===o?' selected':'')+'>'+o+'</option>').join('')
+    +'</select></label>').join('')
+    +(anyActive?'<button class="btn-link" style="color:var(--teal-deep);font-size:13px;padding-bottom:10px;" onclick="clearFilters()">Clear filters</button>':'');
 }
 function filteredRoster(){
   const now=Date.now(), day=86400000;
