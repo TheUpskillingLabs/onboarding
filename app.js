@@ -1019,7 +1019,7 @@ function signupSummaryRows(registered){
    window.WELCOME_EMAIL_ENDPOINT is set — fire-and-forget, never blocking. */
 function dispatchSummaryEmail(kind, rows, changed){
   userState.emails.push({ kind:kind, to:memberEmail(),
-    subject:kind==='update'?'Your Upskilling Labs profile changed: here’s what’s on file now':'Welcome to The Upskilling Labs: here’s what you signed up for',
+    subject:kind==='update'?'Updates to your Upskilling Labs account':'Welcome to The Upskilling Labs: here’s what you signed up for',
     body:(changed?('What changed: '+changed+'\n'):'')+rows.map(r=>r[0]+': '+r[1]).join('\n'), at:Date.now() });
   saveUserState(); // the outbox record (admin → Signups shows it)
   if(window.WELCOME_EMAIL_ENDPOINT){

@@ -12,7 +12,7 @@ const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 /** kind: 'welcome' (first signup) | 'update' (any later profile change) */
 export function welcomeSummarySubject(kind = 'welcome') {
   return kind === 'update'
-    ? 'Your Upskilling Labs profile changed: here’s what’s on file now'
+    ? 'Updates to your Upskilling Labs account'
     : 'Welcome to The Upskilling Labs: here’s what you signed up for';
 }
 
