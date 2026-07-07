@@ -1307,7 +1307,7 @@ function FLOWS(name){
           {title:'I’ll check in every week.', body:'Five minutes, once a week. If I skip it, the app pauses until I catch up. If life gets in the way, I’ll tell my Poderator instead of going quiet.'},
           {title:'Our project is open source.', body:'What we build is an open-source community project — MIT for code, CC BY 4.0 for everything else, with everyone who worked on it credited. Once the cycle ends, I’m free to do whatever I want with it, and so is anyone else.'}
         ]} ]};
-  if(name==='mentor') return { eyebrow:'Mentor profile', finalLabel:'Publish mentor profile', finalClass:'btn-teal', onComplete:()=>{ recordAgreement('mentor'); if(bk()){ const A=window.AGREEMENTS||{}; bkSend(Backend.recordAgreement('mentor',(A.mentor&&A.mentor.version)||'v1','mentor_flow')); } finishRoleFlow('mentor'); if(nextRoleInQueue()) return; showThankYou(userState.cycleStatus==='interested'?'interested':!!userState.completed.cycle); /* mentor publish closes on the thank-you (owner decision) */ },
+  if(name==='mentor') return { eyebrow:'Mentor profile', finalLabel:'Publish mentor profile', finalClass:'btn-teal', onComplete:()=>{ recordAgreement('mentor'); if(bk()){ const A=window.AGREEMENTS||{}; bkSend(Backend.recordAgreement('mentor',(A.mentor&&A.mentor.version)||'v1','mentor_flow')); } finishRoleFlow('mentor', true); if(nextRoleInQueue()) return; showThankYou(userState.cycleStatus==='interested'?'interested':!!userState.completed.cycle); /* mentor publish closes on the thank-you (owner decision) */ },
     steps:[ {id:'expertise',type:'tags',q:'What do you bring?',help:'Pick the areas where you can help — everything here shows on your mentor profile — visible to all Labs members — which is how upskillers and project teams find you.',options:EXPERTISE,required:true},
       {id:'engage',type:'checks',q:'How would you like to engage?',help:'Select all that work for you.',options:ENGAGE,required:true},
       {id:'pods',type:'textarea',q:'Who have you mentored, and how?',help:'Tell us where, when, and how you\u2019ve mentored — inside or outside The Labs. No names needed.',ph:'e.g. 3 pods in the Civic AI cycle — weekly office hours on scoping and shipping.',required:true},
@@ -1316,7 +1316,7 @@ function FLOWS(name){
          the seam where it applies — the last step before publishing, never during
          signup. Skips if the current version is already on file. */
       {id:'agreeMentor',type:'consent',q:'The Mentor Agreement',help:'One document — read it to the end, then publish.',agreementTitle:'The Volunteer Mentor Agreement',agreementHTML:(window.AGREEMENTS&&window.AGREEMENTS.mentor.html)||'',text:'I have read and agree to the Volunteer Mentor Agreement.',when:()=>!hasAgreed('mentor')} ]};
-  if(name==='volunteer') return { eyebrow:'Volunteer profile', finalLabel:'Save profile', finalClass:'btn-teal', onComplete:()=>{ finishRoleFlow('volunteer'); if(nextRoleInQueue()) return; showThankYou(userState.cycleStatus==='interested'?'interested':!!userState.completed.cycle); /* volunteer save closes on the thank-you (owner decision) */ },
+  if(name==='volunteer') return { eyebrow:'Volunteer profile', finalLabel:'Save profile', finalClass:'btn-teal', onComplete:()=>{ finishRoleFlow('volunteer', true); if(nextRoleInQueue()) return; showThankYou(userState.cycleStatus==='interested'?'interested':!!userState.completed.cycle); /* volunteer save closes on the thank-you (owner decision) */ },
     steps:[ {id:'seam',type:'info',q:'Before you start',help:'Three quick questions so the Labs team can match you to events and needs. Your answers go to the team — nothing publishes without your say-so.',render:'<div class="flow-emaillarge" style="font-size:18px;line-height:1.5;">Your volunteer profile<br>Three questions · about a minute</div>'},
       {id:'areas',type:'tags',q:'Where would you like to help?',help:'Pick the areas that fit. Choose as many as you like.',options:VOL_AREAS,required:true},
       {id:'ways',type:'checks',q:'How would you like to pitch in?',help:'Select all that work for you.',options:VOL_WAYS,required:true},
@@ -1360,7 +1360,7 @@ function startRoleFlow(role, backFn, fromSignup){
   else if(role==='mentor'){ mentorBack=backFn||(()=>showView('dashboard')); mentorStep=1; renderMentor(); showView('mentor-explainer'); }
   else { startFlow(role, backFn||(()=>showView('dashboard'))); }
 }
-function finishRoleFlow(role){ if(role==='mentor')userState.mentorAnswers={...fans}; else if(role==='volunteer')userState.volunteerAnswers={...fans}; userState.completed[role]=true; saveUserState(); renderProfileChecklist(); renderDashCycle(); renderProfileView(); if(flow&&flow.returnTo)flow.returnTo(); else showView('dashboard'); }
+function finishRoleFlow(role, stay){ if(role==='mentor')userState.mentorAnswers={...fans}; else if(role==='volunteer')userState.volunteerAnswers={...fans}; userState.completed[role]=true; saveUserState(); renderProfileChecklist(); renderDashCycle(); renderProfileView(); if(stay) return; /* the caller navigates (queue → thank-you) — the dashboard fallback would win the race in a real browser */ if(flow&&flow.returnTo)flow.returnTo(); else showView('dashboard'); }
 function pad2(n){ return n<10?'0'+n:''+n; }
 // Visible step indices — supports optional conditional steps via step.when(fans).
 function fVisible(){ return flow.steps.map((s,i)=>i).filter(i=>{ const s=flow.steps[i]; return !s.when||s.when(fans); }); }
@@ -2129,7 +2129,7 @@ const CEREMONY_VIEWS_HTML = `
             <div class="t-h4" style="margin-bottom:6px;">The projects belong to everyone</div>
             <p class="t-small" style="color:var(--od2);">Everything a team builds here is an open-source community project. When the cycle’s over, you’re free to do whatever you want with it — and so is everyone else. MIT for code, CC BY 4.0 for the rest, with everyone who worked on it credited.</p>
           </div>
-          <button class="btn btn-red btn-lg btn-block" style="margin-top:8px;" onclick="beginCycleRegistration()">Begin registration →</button>
+          <button class="btn btn-red btn-lg btn-block" style="margin-top:8px;" onclick="beginCycleRegistration()">Register →</button>
         </div>
 
         <button class="btn-link" style="color:var(--od2);margin-top:16px;display:block;margin-left:auto;margin-right:auto;" onclick="declineCycleThreshold()">Not now — stay a member, browse the free events</button>
