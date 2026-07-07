@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Onboarding admin · The Upskilling Labs</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../font.css">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../system.css">
+<style>
+/* ═══ ONBOARDING ADMIN — the signups console, nothing else. ═══
+   Live-mode only: reads/manages the real database through the complete-signup
+   edge function; the server re-checks the caller's admin/owner role on every
+   call. Access = sign in (join/) with an account that holds the role (or is
+   in the OWNER_EMAILS function secret), then open /admin/.
+   The OLOS prototype's persona admin (cycles, votes, invitations) stays at
+   ../admin.html — this page is only onboarding. */
+body { background:var(--paper); }
+.adminbar { background:var(--ink); color:#fff; padding:14px var(--pad); display:flex; align-items:center; gap:14px; }
+.adminbar .pill { font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; background:rgba(0,148,160,.25); color:#7ADEE6; border-radius:6px; padding:4px 10px; }
+.adminbar a { color:rgba(255,255,255,.64); font-size:13px; text-decoration:none; margin-left:auto; }
+main { max-width:1080px; margin:0 auto; padding:36px var(--pad) 72px; }
+.lcard { background:var(--white); border:1px solid var(--rule); border-radius:var(--r); box-shadow:var(--shadow); }
+.tbl-wrap { overflow-x:auto; }
+.tbl { width:100%; border-collapse:collapse; min-width:640px; }
+.tbl th { text-align:left; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--meta); font-weight:600; padding:10px 12px; border-bottom:2px solid var(--ink); white-space:nowrap; }
+.tbl td { padding:12px; border-bottom:1px solid var(--rule); font-size:14px; vertical-align:middle; }
+.tbl tbody tr { cursor:pointer; }
+@media (hover:hover) { .tbl tbody tr:hover td { background:rgba(0,148,160,.05); } }
+.t-stat { font-weight:700; letter-spacing:-0.02em; }
+.state { text-align:center; padding:64px 24px; }
+</style>
+</head>
+<body>
+
+<div class="adminbar">
+  <span style="font-weight:700;font-size:15px;">The Upskilling Labs</span>
+  <span class="pill">Onboarding admin</span>
+  <a href="../">← Back to the site</a>
+</div>
+
+<main>
+  <div class="section-head" style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:8px;padding-bottom:14px;border-bottom:2px solid var(--ink);">
+    <div><div class="lbl lbl-teal" style="margin-bottom:6px;">Signups</div><h1 class="t-h2">Who’s joining, and how</h1></div>
+    <button class="btn btn-ghost-teal btn-sm" onclick="loadDbSignups()">Refresh</button>
+  </div>
+  <p class="t-small" id="signup-db-note" style="margin:0 0 20px;color:var(--meta);">Loading…</p>
+
+  <!-- signed-out / not-admin / not-configured states -->
+  <div id="admin-state" class="lcard state" style="display:none;">
+    <div class="t-h3" id="state-title" style="margin-bottom:8px;"></div>
+    <p class="t-small" id="state-body" style="max-width:44ch;margin:0 auto 20px;"></p>
+    <a class="btn btn-teal" id="state-cta" href="../join/">Sign in</a>
+  </div>
+
+  <div id="admin-live" style="display:none;">
+    <div id="signup-metrics" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;"></div>
+    <div class="lcard tbl-wrap" style="padding:6px 12px 2px;margin-bottom:16px;">
+      <table class="tbl" aria-label="Signups">
+        <thead><tr><th>Name</th><th>Email</th><th>Joined</th><th>Roles</th><th>Sector</th><th>Cycle</th><th>Docs</th><th>Contact</th></tr></thead>
+        <tbody id="signup-rows"></tbody>
+      </table>
+    </div>
+    <p class="t-small" style="color:var(--meta);">Click a row for the full intake — answers, agreement versions, role management.</p>
+  </div>
+</main>
+
+<!-- Detail -->
+<div class="gate-modal" id="sg-modal" onclick="if(event.target===this)closeSignup()">
+  <div class="gate-sheet">
+    <button class="gate-close" onclick="closeSignup()" aria-label="Close"><svg width="20" height="20" viewBox="0 0 22 22" fill="none"><path d="M5 5L17 17M17 5L5 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <h3 class="t-h3" id="sg-title" style="margin-bottom:4px;padding-right:32px;">Signup</h3>
+    <p class="t-small" style="margin-bottom:14px;">Everything captured at onboarding.</p>
+    <div id="sg-body" style="max-height:60vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- Change email (super admin) -->
+<div class="gate-modal" id="em-modal" onclick="if(event.target===this)closeEmailChange()">
+  <div class="gate-sheet">
+    <button class="gate-close" onclick="closeEmailChange()" aria-label="Close"><svg width="20" height="20" viewBox="0 0 22 22" fill="none"><path d="M5 5L17 17M17 5L5 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <h3 class="t-h3" style="margin-bottom:4px;padding-right:32px;">Change email for <span id="em-name"></span></h3>
+    <p class="t-small" style="margin-bottom:16px;">This changes how they sign in and where every email goes.</p>
+    <div class="field" style="margin-bottom:16px;"><label for="em-input">New email address</label><input type="email" id="em-input" style="width:100%;border:1px solid var(--rule);border-radius:var(--r);padding:12px 14px;font:inherit;font-size:16px;background:var(--white);"></div>
+    <button class="btn btn-teal btn-block" style="margin-bottom:10px;" onclick="confirmEmailChange()">Change email</button>
+    <button class="btn-link" style="color:var(--meta);width:100%;" onclick="closeEmailChange()">Cancel</button>
+  </div>
+</div>
+
+<!-- Delete (super admin) -->
+<div class="gate-modal" id="del-modal" onclick="if(event.target===this)closeDeleteUser()">
+  <div class="gate-sheet">
+    <button class="gate-close" onclick="closeDeleteUser()" aria-label="Close"><svg width="20" height="20" viewBox="0 0 22 22" fill="none"><path d="M5 5L17 17M17 5L5 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <h3 class="t-h3" style="margin-bottom:8px;padding-right:32px;">Delete <span id="del-name">this user</span>?</h3>
+    <p class="t-small" style="margin-bottom:10px;">This permanently deletes their account and <b>everything attached to it</b> — profile, intake answers, agreement records, roles, enrollments, and emails. There is no undo.</p>
+    <p class="t-small" style="color:var(--meta);margin-bottom:18px;">If they simply stepped away, revoke roles instead — deletion is for erasure requests and mistakes.</p>
+    <button class="btn btn-block" style="background:var(--red);color:#fff;margin-bottom:10px;" onclick="confirmDeleteUser()">Delete permanently</button>
+    <button class="btn-link" style="color:var(--meta);width:100%;" onclick="closeDeleteUser()">Cancel — keep this user</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../config.js"></script>
+<script src="../backend.js"></script>
+<script>
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const DOC_LABELS={participation:'Volunteer and Participation Agreement', guidelines:'Volunteer and Participation Guidelines', mentor:'Mentor Agreement'};
+const ROLE_LABEL_DB={upskiller:'Upskiller',events:'Events',volunteer:'Volunteer',mentor:'Mentor',poderator:'Poderator',admin:'Admin',owner:'Owner'};
+const ROLE_SET=['Upskiller','Events','Volunteer','Mentor','Poderator','Admin','Owner'];
+let ROSTER=[], IS_OWNER=false;
+
+function dbNote(msg, ok){ const el=document.getElementById('signup-db-note'); el.textContent=msg; el.style.color=ok?'var(--teal-deep)':'var(--meta)'; }
+function showState(title, body, cta){ document.getElementById('admin-live').style.display='none'; const s=document.getElementById('admin-state'); s.style.display='block';
+  document.getElementById('state-title').textContent=title; document.getElementById('state-body').textContent=body;
+  const c=document.getElementById('state-cta'); c.style.display=cta?'inline-flex':'none'; if(cta){ c.textContent=cta.label; c.href=cta.href; } }
+
+async function loadDbSignups(){
+  dbNote('Loading…');
+  if(!(window.Backend&&Backend.enabled)){ dbNote('Not configured.'); showState('No backend configured','This deployment has no Supabase config (config.js is empty), so there is nothing to administer here.'); return; }
+  let user=null; try{ user=await Backend.init(); }catch(e){}
+  if(!user){ dbNote('Signed out.'); showState('Sign in first','Sign in with your Google account on the join page, then come back — access is granted by your admin role.',{label:'Sign in',href:'../join/'}); return; }
+  try{
+    const d=await Backend.admin('list');
+    IS_OWNER=!!(d.you&&d.you.owner);
+    const rolesBy={}, accBy={}, enrBy={};
+    (d.roles||[]).forEach(r=>{ (rolesBy[r.participant_id]=rolesBy[r.participant_id]||[]).push(ROLE_LABEL_DB[r.role]||r.role); });
+    (d.acceptances||[]).forEach(a=>{ (accBy[a.participant_id]=accBy[a.participant_id]||[]).push(a); });
+    (d.enrollments||[]).forEach(e=>{ enrBy[e.participant_id]=e.status; });
+    ROSTER=(d.participants||[]).map(x=>({
+      id:x.id, name:((x.first_name||'')+' '+(x.last_name||'')).trim()||x.email, email:x.email,
+      joined:new Date(x.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}),
+      roles:rolesBy[x.id]||[], sector:x.sector||'—', sectorOther:x.sector_other||'', yearsExp:x.years_experience||'—',
+      education:x.education_level||'—', work:x.work_situation||'—', zip:x.zip||'—', linkedin:x.linkedin||'',
+      hearAbout:x.source||'—', referredBy:x.referred_by||'', optIn:!!x.contact_consent,
+      agreements:accBy[x.id]||[], enrollment:enrBy[x.id]||'—', createdVia:x.created_via||'—'
+    }));
+    render();
+    document.getElementById('admin-state').style.display='none'; document.getElementById('admin-live').style.display='block';
+    dbNote('Live from the database ✓ '+ROSTER.length+' signup'+(ROSTER.length===1?'':'s')+(IS_OWNER?' · you are super admin':''), true);
+  }catch(e){
+    const msg=String(e&&e.message||e);
+    if(/403|admin only/.test(msg)){ dbNote('Not an admin.'); showState('This account isn’t an admin','You’re signed in as '+(user.email||'?')+', but that account holds no admin role. An owner can grant it (or add the email to the OWNER_EMAILS function secret).'); }
+    else { dbNote('Load failed: '+msg); showState('Couldn’t reach the backend', msg); }
+  }
+}
+
+function render(){
+  const m=document.getElementById('signup-metrics');
+  const count=f=>ROSTER.filter(f).length;
+  const optPct=ROSTER.length?Math.round(100*count(r=>r.optIn)/ROSTER.length):0;
+  const interested=count(r=>r.enrollment==='interested'||r.enrollment==='active');
+  const stat=(n,l)=>'<div class="lcard" style="padding:16px 18px;"><div class="t-stat" style="font-size:26px;">'+n+'</div><div class="lbl" style="margin-top:2px;">'+l+'</div></div>';
+  m.innerHTML=stat(ROSTER.length,'Signups')+stat(interested,'Cycle interest')+stat(count(r=>r.roles.includes('Volunteer')),'Volunteers')+stat(count(r=>r.roles.includes('Mentor')),'Mentors')+stat(optPct+'%','Contact opt-in');
+  document.getElementById('signup-rows').innerHTML=ROSTER.map(r=>'<tr onclick="openSignup('+r.id+')">'
+    +'<td><b>'+esc(r.name)+'</b></td><td>'+esc(r.email)+'</td><td>'+r.joined+'</td>'
+    +'<td>'+esc(r.roles.join(', ')||'—')+'</td><td>'+esc(r.sector)+'</td><td>'+esc(r.enrollment)+'</td>'
+    +'<td>'+(r.agreements.length)+' ✓</td><td>'+(r.optIn?'Yes':'No')+'</td></tr>').join('');
+}
+
+let sgSel=null;
+function openSignup(id){
+  const r=ROSTER.find(x=>x.id===id); if(!r) return; sgSel=id;
+  const row=(k,v)=>'<div style="display:flex;gap:14px;padding:9px 0;border-bottom:1px solid var(--rule);"><span class="lbl" style="width:130px;flex-shrink:0;padding-top:2px;">'+k+'</span><span class="t-small" style="flex:1;">'+(v||'—')+'</span></div>';
+  const docs=r.agreements.map(g=>esc((DOC_LABELS[g.doc]||g.doc)+' · '+(g.version||'')+' · '+new Date(g.accepted_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}))).join('<br>');
+  const chips=ROLE_SET.map(role=>{
+    const on=r.roles.includes(role);
+    const disabled=(role==='Admin'||role==='Owner')&&!IS_OWNER;
+    return '<button class="chip'+(on?' active':'')+'"'+(disabled?' disabled title="Super admin (Owner) only"':' onclick="toggleRole('+r.id+',\''+role+'\')"')+' style="font-size:12px;">'+role+(on?' ✓':'')+'</button>';
+  }).join(' ');
+  document.getElementById('sg-title').textContent=r.name;
+  document.getElementById('sg-body').innerHTML=
+    '<div style="display:flex;gap:14px;padding:9px 0;border-bottom:1px solid var(--rule);align-items:center;"><span class="lbl" style="width:130px;flex-shrink:0;">Email</span><span class="t-small" style="flex:1;">'+esc(r.email)+'</span>'
+    +(IS_OWNER?'<button class="btn btn-ghost-teal btn-sm" onclick="openEmailChange('+r.id+')">Change…</button>':'')+'</div>'
+    +row('Joined', r.joined+' · via '+esc(r.createdVia))
+    +row('Cycle', esc(r.enrollment))
+    +row('Work status', esc(r.work))+row('Sector', esc(r.sector)+(r.sectorOther?' — '+esc(r.sectorOther):''))
+    +row('Experience', esc(r.yearsExp))+row('Education', esc(r.education))
+    +row('Zip', esc(r.zip))+row('LinkedIn', esc(r.linkedin))
+    +row('Heard via', esc(r.hearAbout)+(r.referredBy?' · '+esc(r.referredBy):''))
+    +row('Contact opt-in', r.optIn?'Yes — updates, newsletters, invites':'No — account-critical only')
+    +row('Documents', docs)
+    +'<div class="lbl lbl-teal" style="margin:16px 0 8px;">Roles</div><div style="display:flex;gap:8px;flex-wrap:wrap;">'+chips+'</div>'
+    +(IS_OWNER?'<div class="lbl" style="margin:20px 0 8px;color:var(--red);">Danger zone · super admin</div><button class="btn btn-sm" style="background:transparent;border:1px solid var(--red);color:var(--red);" onclick="openDeleteUser('+r.id+')">Delete this user…</button>':'');
+  document.getElementById('sg-modal').classList.add('open');
+}
+function closeSignup(){ document.getElementById('sg-modal').classList.remove('open'); sgSel=null; }
+
+function toggleRole(id, role){
+  const r=ROSTER.find(x=>x.id===id); if(!r) return;
+  const want=r.roles.slice(); const i=want.indexOf(role); if(i>=0) want.splice(i,1); else want.push(role);
+  dbNote('Saving role change…');
+  Backend.admin('set_roles',{participant_id:id, roles:want.map(x=>x.toLowerCase())})
+    .then(()=>loadDbSignups()).then(()=>openSignup(id))
+    .catch(e=>dbNote('Role change failed: '+(e&&e.message||e)));
+}
+
+let emailTarget=null;
+function openEmailChange(id){ const r=ROSTER.find(x=>x.id===id); if(!r||!IS_OWNER) return; emailTarget=id;
+  document.getElementById('em-name').textContent=r.name; const inp=document.getElementById('em-input'); inp.value=r.email;
+  document.getElementById('em-modal').classList.add('open'); setTimeout(()=>inp.focus(),60); }
+function closeEmailChange(){ document.getElementById('em-modal').classList.remove('open'); emailTarget=null; }
+function confirmEmailChange(){ const v=document.getElementById('em-input').value.trim();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){ document.getElementById('em-input').focus(); return; }
+  const id=emailTarget; closeEmailChange(); dbNote('Changing email…');
+  Backend.admin('change_email',{participant_id:id, email:v}).then(()=>loadDbSignups()).then(()=>openSignup(id))
+    .catch(e=>dbNote('Email change failed: '+(e&&e.message||e))); }
+
+let delTarget=null;
+function openDeleteUser(id){ const r=ROSTER.find(x=>x.id===id); if(!r||!IS_OWNER) return; delTarget=id;
+  document.getElementById('del-name').textContent=r.name; document.getElementById('del-modal').classList.add('open'); }
+function closeDeleteUser(){ document.getElementById('del-modal').classList.remove('open'); delTarget=null; }
+function confirmDeleteUser(){ const id=delTarget; closeDeleteUser(); closeSignup(); if(!id) return;
+  dbNote('Deleting user and everything attached…');
+  Backend.admin('delete',{participant_id:id}).then(()=>loadDbSignups()).catch(e=>dbNote('Delete failed: '+(e&&e.message||e))); }
+
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeSignup(); closeEmailChange(); closeDeleteUser(); } });
+loadDbSignups();
+</script>
+</body>
+</html>
