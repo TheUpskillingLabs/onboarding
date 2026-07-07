@@ -45,12 +45,26 @@
 
   window.Backend = {
     enabled: on,
-    /* session (or null) — call once at boot; supabase-js also consumes the
-       OAuth redirect hash/code on this call. */
+    /* session (or null) — call once at boot. On the return leg from Google the
+       code exchange is still in flight when the page boots, so getSession()
+       alone races to null; when the URL carries an OAuth code we wait for the
+       first auth event (up to 8s) before answering. */
     async init(){
       if (!on) return null;
       const { data } = await client.auth.getSession();
-      return data.session ? data.session.user : null;
+      if (data.session) return data.session.user;
+      if (/[?&#](code|access_token)=/.test(location.search + location.hash)) {
+        return await new Promise((res) => {
+          let done = false;
+          const { data: sub } = client.auth.onAuthStateChange((_ev, session) => {
+            if (done || !session) return;
+            done = true; try { sub.subscription.unsubscribe(); } catch (e) {}
+            res(session.user);
+          });
+          setTimeout(() => { if (!done) { done = true; try { sub.subscription.unsubscribe(); } catch (e) {} res(null); } }, 8000);
+        });
+      }
+      return null;
     },
     async signInWithGoogle(){
       sessionStorage.setItem('labs.joinIntent', '1');
