@@ -57,13 +57,14 @@ main { max-width:1080px; margin:0 auto; padding:36px var(--pad) 72px; }
 
   <div id="admin-live" style="display:none;">
     <div id="signup-metrics" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;"></div>
+    <div id="signup-filters" style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;"></div>
     <div class="lcard tbl-wrap" style="padding:6px 12px 2px;margin-bottom:16px;">
       <table class="tbl" aria-label="Signups">
         <thead><tr><th>Name</th><th>Email</th><th>Joined</th><th>Roles</th><th>Sector</th><th>Cycle</th><th>Docs</th><th>Contact</th></tr></thead>
         <tbody id="signup-rows"></tbody>
       </table>
     </div>
-    <p class="t-small" style="color:var(--meta);">Click a row for the full intake — answers, agreement versions, role management.</p>
+    <p class="t-small" style="color:var(--meta);"><span id="signup-count"></span> Click a row for the full intake — answers, agreement versions, role management.</p>
   </div>
 </main>
 
@@ -130,6 +131,7 @@ async function loadDbSignups(){
     (d.enrollments||[]).forEach(e=>{ enrBy[e.participant_id]=e.status; });
     ROSTER=(d.participants||[]).map(x=>({
       id:x.id, name:((x.first_name||'')+' '+(x.last_name||'')).trim()||x.email, email:x.email,
+      ts:new Date(x.created_at).getTime(),
       joined:new Date(x.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}),
       roles:rolesBy[x.id]||[], sector:x.sector||'—', sectorOther:x.sector_other||'', yearsExp:x.years_experience||'—',
       education:x.education_level||'—', work:x.work_situation||'—', zip:x.zip||'—', linkedin:x.linkedin||'',
@@ -146,6 +148,38 @@ async function loadDbSignups(){
   }
 }
 
+/* ── Filters: role · joined-when · cycle status · contact opt-in ── */
+const FILTERS={ role:'All', joined:'All time', cycle:'All', contact:'All' };
+const FILTER_DEFS=[
+  { key:'role',    label:'Role',    options:['All','Upskiller','Events','Volunteer','Mentor','Poderator','Admin'] },
+  { key:'joined',  label:'Joined',  options:['All time','Today','Last 7 days','Last 30 days'] },
+  { key:'cycle',   label:'Cycle',   options:['All','Interested','Active','None'] },
+  { key:'contact', label:'Contact', options:['All','Opted in','No'] },
+];
+function setFilter(key,val){ FILTERS[key]=val; render(); }
+function renderFilters(){
+  document.getElementById('signup-filters').innerHTML=FILTER_DEFS.map(f=>
+    '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+    +'<span class="lbl" style="width:64px;flex-shrink:0;">'+f.label+'</span>'
+    +f.options.map(o=>'<button class="chip'+(FILTERS[f.key]===o?' active':'')+'" style="font-size:12px;" onclick="setFilter(\''+f.key+'\',\''+o+'\')">'+o+'</button>').join('')
+    +'</div>').join('');
+}
+function filteredRoster(){
+  const now=Date.now(), day=86400000;
+  const today=new Date(); today.setHours(0,0,0,0);
+  return ROSTER.filter(r=>{
+    if(FILTERS.role!=='All'&&!r.roles.includes(FILTERS.role)) return false;
+    if(FILTERS.joined==='Today'&&r.ts<today.getTime()) return false;
+    if(FILTERS.joined==='Last 7 days'&&r.ts<now-7*day) return false;
+    if(FILTERS.joined==='Last 30 days'&&r.ts<now-30*day) return false;
+    if(FILTERS.cycle==='Interested'&&r.enrollment!=='interested') return false;
+    if(FILTERS.cycle==='Active'&&r.enrollment!=='active') return false;
+    if(FILTERS.cycle==='None'&&(r.enrollment==='interested'||r.enrollment==='active')) return false;
+    if(FILTERS.contact==='Opted in'&&!r.optIn) return false;
+    if(FILTERS.contact==='No'&&r.optIn) return false;
+    return true;
+  });
+}
 function render(){
   const m=document.getElementById('signup-metrics');
   const count=f=>ROSTER.filter(f).length;
@@ -153,10 +187,14 @@ function render(){
   const interested=count(r=>r.enrollment==='interested'||r.enrollment==='active');
   const stat=(n,l)=>'<div class="lcard" style="padding:16px 18px;"><div class="t-stat" style="font-size:26px;">'+n+'</div><div class="lbl" style="margin-top:2px;">'+l+'</div></div>';
   m.innerHTML=stat(ROSTER.length,'Signups')+stat(interested,'Cycle interest')+stat(count(r=>r.roles.includes('Volunteer')),'Volunteers')+stat(count(r=>r.roles.includes('Mentor')),'Mentors')+stat(optPct+'%','Contact opt-in');
-  document.getElementById('signup-rows').innerHTML=ROSTER.map(r=>'<tr onclick="openSignup('+r.id+')">'
+  renderFilters();
+  const list=filteredRoster();
+  document.getElementById('signup-count').textContent='Showing '+list.length+' of '+ROSTER.length+'.';
+  document.getElementById('signup-rows').innerHTML=list.map(r=>'<tr onclick="openSignup('+r.id+')">'
     +'<td><b>'+esc(r.name)+'</b></td><td>'+esc(r.email)+'</td><td>'+r.joined+'</td>'
     +'<td>'+esc(r.roles.join(', ')||'—')+'</td><td>'+esc(r.sector)+'</td><td>'+esc(r.enrollment)+'</td>'
-    +'<td>'+(r.agreements.length)+' ✓</td><td>'+(r.optIn?'Yes':'No')+'</td></tr>').join('');
+    +'<td>'+(r.agreements.length)+' ✓</td><td>'+(r.optIn?'Yes':'No')+'</td></tr>').join('')
+    ||'<tr><td colspan="8" style="text-align:center;color:var(--meta);padding:28px;">No signups match these filters.</td></tr>';
 }
 
 let sgSel=null;
