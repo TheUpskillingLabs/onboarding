@@ -1,0 +1,12 @@
+# Minimal Supabase CLI config — exists so the CLI anchors its workdir HERE
+# (without it, the CLI climbs up and can latch onto a stray ~/supabase project,
+# then can't find the functions). This repo only ships edge functions; the
+# database schema/migrations live in the OLOS repo (see the sync policy in
+# docs/DB_CHANGES_ONBOARDING.md).
+project_id = "onboarding"
+
+[functions.send-welcome-summary]
+verify_jwt = false   # public endpoint; validates payload + CORS itself
+
+[functions.complete-signup]
+verify_jwt = true    # requires a signed-in user's JWT (checked again in code)
